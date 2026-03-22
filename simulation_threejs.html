@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EN-MASCA Drone Swarm — City Patrol</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#070d18; overflow:hidden; font-family:'Courier New',monospace; }
+canvas { display:block; }
+#topbar {
+  position:fixed; top:0; left:0; right:0; height:46px;
+  background:linear-gradient(90deg,rgba(0,15,35,0.97),rgba(0,30,60,0.9));
+  border-bottom:1px solid #00d4ff33; display:flex; align-items:center;
+  padding:0 18px; gap:20px; z-index:20; backdrop-filter:blur(10px);
+}
+.logo { color:#00d4ff; font-size:14px; font-weight:bold; letter-spacing:3px; }
+.badge { padding:3px 14px; border-radius:20px; font-size:10px; letter-spacing:1.5px; border:1px solid #00d4ff44; color:#00d4ff; background:rgba(0,50,100,0.5); }
+#status { padding:3px 14px; border-radius:20px; font-size:10px; letter-spacing:1.5px; transition:all 0.4s; border:1px solid #00ff8855; color:#00ff88; }
+#top-right { margin-left:auto; display:flex; gap:18px; align-items:center; }
+.top-stat { color:#556677; font-size:10px; letter-spacing:1px; }
+.top-stat span { color:#aaccee; font-weight:bold; }
+#panel-l {
+  position:fixed; top:56px; left:14px; width:238px;
+  background:rgba(3,10,22,0.92); border:1px solid #00d4ff1a;
+  border-radius:10px; padding:14px 16px; z-index:20; backdrop-filter:blur(12px);
+}
+.ptitle { color:#00d4ff; font-size:9px; letter-spacing:2.5px; text-transform:uppercase;
+  border-bottom:1px solid #00d4ff1a; padding-bottom:6px; margin-bottom:11px; }
+.row { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+.lbl { color:#445566; font-size:10px; }
+.val { color:#cce8ff; font-size:10px; font-weight:bold; }
+.val.g { color:#00ff88; } .val.w { color:#ffaa00; }
+.pbar { height:3px; background:#0a1525; border-radius:2px; margin-bottom:9px; overflow:hidden; }
+.pfill { height:100%; border-radius:2px; transition:width 0.35s ease; }
+#panel-route {
+  position:fixed; top:56px; right:14px; width:215px;
+  background:rgba(3,10,22,0.92); border:1px solid #00d4ff1a;
+  border-radius:10px; padding:14px 16px; z-index:20; backdrop-filter:blur(12px);
+}
+.zone-row { display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:7px;
+  margin-bottom:5px; border:1px solid transparent; transition:all 0.4s; }
+.zone-row.active  { background:rgba(0,100,200,0.18); border-color:#00d4ff33; }
+.zone-row.done    { background:rgba(0,80,40,0.15); border-color:#00ff8822; }
+.zone-row.pending { opacity:0.4; }
+.zone-num { width:22px; height:22px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-size:10px; font-weight:bold; flex-shrink:0; }
+.zone-info { flex:1; }
+.zone-name { color:#cce8ff; font-size:10px; font-weight:bold; }
+.zone-desc { color:#445566; font-size:9px; margin-top:1px; }
+.zone-status { font-size:9px; font-weight:bold; }
+#panel-drones {
+  position:fixed; bottom:46px; right:14px; width:215px;
+  background:rgba(3,10,22,0.92); border:1px solid #00d4ff1a;
+  border-radius:10px; padding:12px 14px; z-index:20; backdrop-filter:blur(12px);
+}
+.dcard { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+.ddot  { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.dname { color:#8899aa; font-size:9px; width:44px; }
+.dbar-wrap { flex:1; height:3px; background:#0a1525; border-radius:2px; overflow:hidden; }
+.dbar-fill  { height:100%; border-radius:2px; transition:width 0.2s; }
+.dspd  { color:#aabbcc; font-size:9px; width:34px; text-align:right; }
+#minimap {
+  position:fixed; bottom:46px; left:14px; width:185px; height:185px;
+  background:rgba(3,10,22,0.92); border:1px solid #00d4ff22;
+  border-radius:10px; overflow:hidden; z-index:20; backdrop-filter:blur(10px);
+}
+#mm { width:100%; height:100%; }
+.mm-lbl { position:absolute; top:7px; left:10px; color:#00d4ff66; font-size:8px; letter-spacing:1.5px; }
+.mm-sc  { position:absolute; bottom:7px; right:8px; color:#334455; font-size:8px; }
+#bottombar {
+  position:fixed; bottom:0; left:0; right:0; height:38px;
+  background:rgba(3,10,22,0.94); border-top:1px solid #00d4ff1a;
+  display:flex; align-items:center; justify-content:center; gap:22px;
+  z-index:20; backdrop-filter:blur(10px);
+}
+.kh { color:#334455; font-size:9px; letter-spacing:1px; }
+.kh b { color:#00d4ffaa; }
+#flash { position:fixed; inset:0; pointer-events:none; z-index:15;
+  opacity:0; transition:opacity 0.08s; background:rgba(0,255,136,0.06); }
+#announce {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:rgba(0,15,40,0.95); border:1px solid #00d4ff44;
+  border-radius:14px; padding:18px 36px; text-align:center;
+  z-index:30; display:none; backdrop-filter:blur(16px); box-shadow:0 0 40px #00d4ff22;
+}
+#announce .atitle { color:#00d4ff; font-size:10px; letter-spacing:3px; margin-bottom:6px; }
+#announce .azone  { font-size:22px; font-weight:bold; margin-bottom:4px; }
+#announce .adesc  { color:#667788; font-size:10px; }
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+<div id="topbar">
+  <div class="logo">&#x2B21; EN-MASCA</div>
+  <div class="badge">DRONE SWARM PATROL</div>
+  <div id="status">&#9679; PATROLLING</div>
+  <div id="top-right">
+    <div class="top-stat">TIME <span id="tt">0.0s</span></div>
+    <div class="top-stat">SPEED <span id="ts">0.0</span> m/s</div>
+    <div class="top-stat">ROUND <span id="tr">1</span></div>
+    <div class="top-stat">FPS <span id="tf">--</span></div>
+  </div>
+</div>
+<div id="panel-l">
+  <div class="ptitle">Mission Telemetry</div>
+  <div class="row"><span class="lbl">Sim Time</span><span class="val" id="m-t">0.0 s</span></div>
+  <div class="row"><span class="lbl">Mean Speed</span><span class="val" id="m-spd">0.0 m/s</span></div>
+  <div class="row"><span class="lbl">Max H-Diff</span><span class="val" id="m-hd">0.00 m</span></div>
+  <div class="row"><span class="lbl">Cluster Nav</span><span class="val" id="m-nd">0.0 m</span></div>
+  <div class="row"><span class="lbl">Mean Nbr Dist</span><span class="val" id="m-nb">0.0 m</span></div>
+  <div class="row"><span class="lbl">Obstacles Avoided</span><span class="val g" id="m-ca">0</span></div>
+  <div class="row"><span class="lbl">Zones Reached</span><span class="val g" id="m-tgt">0</span></div>
+  <div style="margin-top:10px;">
+  <div class="ptitle">Learning Status</div>
+  <div class="row"><span class="lbl">DQN epsilon</span><span class="val w" id="m-eps">80%</span></div>
+  <div class="pbar"><div class="pfill" id="pb-eps" style="width:80%;background:linear-gradient(90deg,#ff6600,#ffdd00)"></div></div>
+  <div class="row"><span class="lbl">PPO Iterations</span><span class="val" id="m-ppo">0</span></div>
+  <div class="row"><span class="lbl">Formation Score</span><span class="val g" id="m-form">--</span></div>
+  </div>
+</div>
+<div id="panel-route">
+  <div class="ptitle">Patrol Route (Loop)</div>
+  <div id="zone-list"></div>
+  <div style="margin-top:8px;border-top:1px solid #00d4ff1a;padding-top:8px;">
+  <div class="row"><span class="lbl">World Size</span><span class="val">160x160 m</span></div>
+  <div class="row"><span class="lbl">Keys 1-5</span><span class="val">Jump to zone</span></div>
+  </div>
+</div>
+<div id="panel-drones">
+  <div class="ptitle">Drone Status</div>
+  <div id="drone-cards"></div>
+</div>
+<div id="minimap">
+  <canvas id="mm" width="185" height="185"></canvas>
+  <div class="mm-lbl">MINIMAP</div>
+  <div class="mm-sc">160m</div>
+</div>
+<div id="bottombar">
+  <span class="kh"><b>SPACE</b> Pause</span>
+  <span class="kh"><b>C</b> Camera</span>
+  <span class="kh"><b>R</b> Reset</span>
+  <span class="kh"><b>+/-</b> Speed</span>
+  <span class="kh"><b>F</b> Follow</span>
+  <span class="kh"><b>G</b> Nav</span>
+  <span class="kh"><b>A</b> Auto-Rotate</span>
+  <span class="kh"><b>Q/E</b> Zoom</span>
+  <span class="kh"><b>1-5</b> Jump Zone</span>
+</div>
+<div id="flash"></div>
+<div id="announce">
+  <div class="atitle">WAYPOINT REACHED</div>
+  <div class="azone" id="ann-zone">--</div>
+  <div class="adesc"  id="ann-desc">--</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function() {
+'use strict';
+
+// ── Constants ─────────────────────────────────────────────
+var WORLD = 160, N = 6, ALT = 12, MAXSPD = 8, DT = 0.03;
+
+var DHX = ['#00aaff','#00ff88','#ff6600','#cc44ff','#ffdd00','#ff2255'];
+var DHN = [0x00aaff, 0x00ff88, 0xff6600, 0xcc44ff, 0xffdd00, 0xff2255];
+
+var ZONES = [
+  {name:'ALPHA BASE',   desc:'Northern Command District',   pos:[40,  30,  ALT], color:'#00aaff'},
+  {name:'DELTA MARKET', desc:'Eastern Commercial Hub',      pos:[120, 50,  ALT], color:'#ffdd00'},
+  {name:'ECHO TOWER',   desc:'Southern Comm Cluster',       pos:[110, 120, ALT], color:'#ff6600'},
+  {name:'GAMMA PARK',   desc:'Central Green Zone',          pos:[55,  100, ALT], color:'#00ff88'},
+  {name:'BETA HARBOR',  desc:'Western Industrial Zone',     pos:[30,  65,  ALT], color:'#cc44ff'}
+];
+
+// ── Math helpers ──────────────────────────────────────────
+function vadd(a,b){ return [a[0]+b[0], a[1]+b[1], a[2]+b[2]]; }
+function vsub(a,b){ return [a[0]-b[0], a[1]-b[1], a[2]-b[2]]; }
+function vscl(a,s){ return [a[0]*s, a[1]*s, a[2]*s]; }
+function vdot(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+function vlen(a)  { return Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]); }
+function vnrm(a)  { var l=vlen(a)+1e-9; return [a[0]/l,a[1]/l,a[2]/l]; }
+function vavg(arr){ return arr.reduce(function(s,v){return s+v;},0)/arr.length; }
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+function rnd(lo,hi){ return lo+Math.random()*(hi-lo); }
+
+// ── Drone Physics ────────────────────────────────────────
+function DronePhysics(id, pos) {
+  this.id = id;
+  this.pos = pos.slice();
+  this.vel = [rnd(-0.3,0.3), rnd(-0.3,0.3), 0];
+  this.trail = [];
+  this.eps = 0.85;
+  this.avoided = 0;
+  this.ppoIter = 0;
+}
+DronePhysics.prototype.update = function(navPos, navVel, nbrs, obs, tgt, dt) {
+  this.eps = Math.max(0.04, this.eps * 0.9999);
+
+  // Pz: navigator tracking — STRONG pull toward navigator
+  var toN = vsub(navPos, this.pos);
+  var dN = vlen(toN);
+  var pz = vadd(vscl(vnrm(toN), 5.0), vscl(vsub(navVel, this.vel), 0.8));
+
+  // Px: cohesion+separation — gentle, don't fight the nav force
+  var px = [0,0,0];
+  for (var ni = 0; ni < nbrs.length; ni++) {
+    var nb = nbrs[ni];
+    var d = vsub(nb.pos, this.pos), dist = vlen(d);
+    if (dist > 0.1 && dist < 25) {
+      var desired = 10.0;
+      var fm = (dist - desired) * 0.12;
+      px = vadd(px, vscl(vnrm(d), fm));
+    }
+  }
+
+  // Py: obstacle avoidance — only when very close
+  var py = [0,0,0];
+  for (var oi = 0; oi < obs.length; oi++) {
+    var op = obs[oi][0], or_ = obs[oi][1];
+    var od = vsub(this.pos, op), odist = vlen(od);
+    var clearance = or_ + 5;
+    if (odist > 0 && odist < clearance) {
+      var s = (clearance - odist) / clearance;
+      py = vadd(py, vscl(vnrm(od), s * s * 8));
+      if (s > 0.4) this.avoided++;
+    }
+  }
+
+  // DQN: direct steer toward target
+  var toT = vsub(tgt, this.pos), dT = vlen(toT), tDir = vnrm(toT);
+  var dqn = vscl(tDir, 2.0);
+
+  // Altitude hold
+  var az = [0, 0, (ALT - this.pos[2]) * 3];
+
+  // Acceleration — dominate with nav+target, gentle cohesion
+  var acc = [
+    pz[0] + dqn[0]*0.6 + px[0]*0.3 + py[0],
+    pz[1] + dqn[1]*0.6 + px[1]*0.3 + py[1],
+    pz[2] + dqn[2]*0.6 + px[2]*0.3 + py[2] + az[2]
+  ];
+
+  // Velocity: integrate with minimal drag so drones actually FLY
+  this.vel[0] += acc[0]*dt;
+  this.vel[1] += acc[1]*dt;
+  this.vel[2] += acc[2]*dt;
+  // Very light drag — only 2% per step
+  this.vel[0] *= 0.975;
+  this.vel[1] *= 0.975;
+  this.vel[2] *= 0.96;
+
+  var spd = vlen(this.vel);
+  if (spd > MAXSPD) { this.vel = vscl(this.vel, MAXSPD/spd); }
+  if (spd < 2.0 && spd > 0) { this.vel = vscl(this.vel, 2.0/spd); }
+
+  this.pos[0] += this.vel[0]*dt;
+  this.pos[1] += this.vel[1]*dt;
+  this.pos[2] += this.vel[2]*dt;
+  this.pos[0] = clamp(this.pos[0], 2, WORLD-2);
+  this.pos[1] = clamp(this.pos[1], 2, WORLD-2);
+  this.pos[2] = clamp(this.pos[2], 4, 28);
+  this.trail.push(this.pos.slice());
+  if (this.trail.length > 90) this.trail.shift();
+  if (this.trail.length % 32 === 0) this.ppoIter++;
+  return dT < 10;
+};
+
+// ── Navigator Physics ────────────────────────────────────
+function NavPhysics(start, target) {
+  this.pos    = start.slice();
+  this.vel    = [0,0,0];
+  this.target = target.slice();
+  this.trail  = [];
+  this.hidden = new Array(12).fill(0);
+}
+NavPhysics.prototype.step = function(obs, dt) {
+  var toT = vsub(this.target, this.pos);
+  var dist = vlen(toT);
+
+  // Arrival check
+  if (dist < 8) {
+    this.trail.push(this.pos.slice());
+    return true;
+  }
+
+  // Desired velocity: steer toward target at cruise speed (PPO actor)
+  var cruiseSpd = Math.min(MAXSPD * 0.88, 4.5 + dist * 0.06);
+  var desired = vscl(vnrm(toT), cruiseSpd);
+
+  // Steering force: smooth velocity change
+  var steer = [desired[0] - this.vel[0], desired[1] - this.vel[1], 0];
+  var steerMag = Math.sqrt(steer[0]*steer[0]+steer[1]*steer[1]);
+  var maxSteer = 6.0;
+  if (steerMag > maxSteer) {
+    steer[0] = steer[0]/steerMag*maxSteer;
+    steer[1] = steer[1]/steerMag*maxSteer;
+  }
+
+  // Obstacle avoidance: perpendicular steering (go around, never stop)
+  var avoidForce = [0,0,0];
+  for (var oi = 0; oi < obs.length; oi++) {
+    var op = obs[oi][0], or_ = obs[oi][1];
+    var away = vsub(this.pos, op);
+    var dd = vlen(away);
+    var danger = or_ + 9;
+    if (dd > 0 && dd < danger) {
+      var pushStr = (danger - dd) / danger;
+      var ax = away[0]/(dd+1e-6), ay = away[1]/(dd+1e-6);
+      var perp = [-ay, ax, 0];
+      var side = vdot(perp, vnrm(toT)) >= 0 ? 1 : -1;
+      avoidForce[0] += side * perp[0] * pushStr * 7 + ax * pushStr * 4;
+      avoidForce[1] += side * perp[1] * pushStr * 7 + ay * pushStr * 4;
+    }
+  }
+
+  // LSTM EMA hidden state (PPO memory)
+  var sv = vnrm(toT);
+  for (var hi = 0; hi < 12; hi++) {
+    this.hidden[hi] = 0.88*this.hidden[hi] + 0.12*(sv[hi%3]||0);
+  }
+
+  // Integrate
+  this.vel[0] += (steer[0] + avoidForce[0]) * dt;
+  this.vel[1] += (steer[1] + avoidForce[1]) * dt;
+  this.vel[2] += (ALT - this.pos[2]) * 3.0 * dt;
+  this.vel[0] *= 0.98; this.vel[1] *= 0.98; this.vel[2] *= 0.94;
+
+  var sp = vlen(this.vel);
+  if (sp > MAXSPD) { this.vel = vscl(this.vel, MAXSPD/sp); }
+  // Navigator NEVER stops — enforce minimum speed
+  if (sp < 2.5 && sp > 0) { this.vel = vscl(this.vel, 2.5/sp); }
+
+  this.pos[0] += this.vel[0]*dt;
+  this.pos[1] += this.vel[1]*dt;
+  this.pos[2] += this.vel[2]*dt;
+  this.pos[0] = clamp(this.pos[0], 3, WORLD-3);
+  this.pos[1] = clamp(this.pos[1], 3, WORLD-3);
+  this.pos[2] = clamp(this.pos[2], ALT-2, ALT+4);
+  this.trail.push(this.pos.slice());
+  if (this.trail.length > 90) this.trail.shift();
+  return false;
+};
+
+// ── Swarm Controller ─────────────────────────────────────
+function Swarm() { this.reset(); }
+Swarm.prototype.reset = function() {
+  this.zI = 0; this.total = 0; this.round = 1; this.t = 0;
+  this.justArrived = false; this.arrivedZone = null;
+  this.stuckTimer = 0; this.lastPos = null;
+  var sp = ZONES[0].pos.slice();
+  this.drones = [];
+  for (var i = 0; i < N; i++) {
+    var a = 2*Math.PI*i/N + Math.PI/6;
+    var r = 8 + (i % 2) * 3;
+    this.drones.push(new DronePhysics(i, [sp[0]+r*Math.cos(a), sp[1]+r*Math.sin(a), ALT+1+(i%3)*1.2]));
+  }
+  this.nav = new NavPhysics(sp.slice(), ZONES[1].pos.slice());
+  this.dynObs = [];
+  for (var j = 0; j < 10; j++) {
+    var spd = rnd(0.5,1.4), ang = rnd(0, Math.PI*2);
+    this.dynObs.push({pos:[rnd(20,WORLD-20), rnd(20,WORLD-20), 0.8], vel:[spd*Math.cos(ang), spd*Math.sin(ang)], r:2});
+  }
+  this.staticObs = [];
+};
+Swarm.prototype.cc = function() {
+  var s=[0,0,0];
+  for (var i=0; i<this.drones.length; i++) {
+    s[0]+=this.drones[i].pos[0]; s[1]+=this.drones[i].pos[1]; s[2]+=this.drones[i].pos[2];
+  }
+  return [s[0]/N, s[1]/N, s[2]/N];
+};
+Swarm.prototype.step = function(dt) {
+  for (var i=0; i<this.dynObs.length; i++) {
+    var d=this.dynObs[i];
+    d.pos[0]+=d.vel[0]*dt; d.pos[1]+=d.vel[1]*dt;
+    if(d.pos[0]<8||d.pos[0]>WORLD-8) d.vel[0]*=-1;
+    if(d.pos[1]<8||d.pos[1]>WORLD-8) d.vel[1]*=-1;
+  }
+  var allObs = this.staticObs.slice();
+  for (var j=0; j<this.dynObs.length; j++) {
+    allObs.push([this.dynObs[j].pos.slice(), this.dynObs[j].r]);
+  }
+  var navDone = this.nav.step(allObs, dt);
+  var tgt = ZONES[this.zI].pos;
+  for (var di=0; di<this.drones.length; di++) {
+    var nbrs = this.drones.filter(function(x){ return x.id !== di; });
+    this.drones[di].update(this.nav.pos, this.nav.vel, nbrs, allObs, tgt, dt);
+  }
+  var cc = this.cc();
+  this.justArrived = false;
+
+  // ── Primary arrival: nav reached zone OR cluster close enough ──
+  var distToZone = vlen(vsub(cc, tgt));
+  if (distToZone < 15 || navDone) {
+    this.justArrived = true;
+    this.arrivedZone = ZONES[this.zI];
+    this.total++;
+    this.stuckTimer = 0; this.lastPos = null;
+    this.zI = (this.zI+1) % ZONES.length;
+    if (this.zI === 0) this.round++;
+    this.nav.target = ZONES[this.zI].pos.slice();
+  }
+
+  // ── Anti-stuck: if navigator barely moved in 400 steps, force next zone ──
+  this.stuckTimer++;
+  if (this.stuckTimer % 400 === 0) {
+    if (this.lastPos) {
+      var moved = vlen(vsub(this.nav.pos, this.lastPos));
+      if (moved < 5) {
+        // Teleport nav slightly off stuck position and try again
+        this.nav.pos[0] += (Math.random()-0.5)*20;
+        this.nav.pos[1] += (Math.random()-0.5)*20;
+        this.nav.vel = [0,0,0];
+      }
+    }
+    this.lastPos = this.nav.pos.slice();
+  }
+  // Force advance after 1200 steps (40 seconds) regardless
+  if (this.stuckTimer > 1200) {
+    this.justArrived = true;
+    this.arrivedZone = ZONES[this.zI];
+    this.total++;
+    this.stuckTimer = 0; this.lastPos = null;
+    this.zI = (this.zI+1) % ZONES.length;
+    if (this.zI === 0) this.round++;
+    this.nav.target = ZONES[this.zI].pos.slice();
+  }
+
+  this.t += dt;
+};
+Swarm.prototype.tel = function() {
+  var spds=[], hts=[], nbrs=[];
+  for (var i=0; i<this.drones.length; i++) {
+    spds.push(vlen(this.drones[i].vel));
+    hts.push(this.drones[i].pos[2]);
+    for (var j=i+1; j<this.drones.length; j++) {
+      nbrs.push(vlen(vsub(this.drones[i].pos, this.drones[j].pos)));
+    }
+  }
+  var cc = this.cc();
+  var form = Math.max(0, 100 - Math.abs(vavg(nbrs)-7)*8);
+  var avoided = 0;
+  for (var k=0; k<this.drones.length; k++) avoided += this.drones[k].avoided;
+  return {
+    t: this.t, spds: spds, meanSpd: vavg(spds),
+    maxHD: Math.max.apply(null,hts) - Math.min.apply(null,hts),
+    navDist: vlen(vsub(cc, this.nav.pos)), mNbr: vavg(nbrs),
+    avoided: avoided, total: this.total, zI: this.zI,
+    eps: this.drones[0].eps, ppoIter: this.drones[0].ppoIter, form: form
+  };
+};
+
+// ═══════════════════════════════════════════════════════
+// THREE.JS SETUP
+// ═══════════════════════════════════════════════════════
+var renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1a2e);
+scene.fog = new THREE.Fog(0x08111f, 200, 600);
+
+var camera = new THREE.PerspectiveCamera(58, window.innerWidth/window.innerHeight, 0.5, 3000);
+camera.position.set(80, 20, 120);
+camera.lookAt(80, 80, 0);
+
+// Lighting
+var sun = new THREE.DirectionalLight(0xffe8cc, 1.5);
+sun.position.set(80, 60, 180); sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left = -200; sun.shadow.camera.right = 200;
+sun.shadow.camera.bottom = -200; sun.shadow.camera.top = 200;
+sun.shadow.camera.far = 500;
+scene.add(sun);
+scene.add(new THREE.AmbientLight(0x334466, 1.4));
+var fill = new THREE.DirectionalLight(0x6688cc, 0.8);
+fill.position.set(-60, -40, 80); scene.add(fill);
+
+var swarm = new Swarm();
+var SOL = []; // static obstacle list
+
+// ── Ground ─────────────────────────────────────────────
+var gGeo = new THREE.PlaneGeometry(WORLD, WORLD, 60, 60);
+var gPos = gGeo.attributes.position;
+for (var gi=0; gi<gPos.count; gi++) {
+  var gx=gPos.getX(gi), gy=gPos.getY(gi);
+  gPos.setZ(gi, Math.sin(gx*0.04)*Math.cos(gy*0.035)*0.5);
+}
+gGeo.computeVertexNormals();
+var gnd = new THREE.Mesh(gGeo, new THREE.MeshLambertMaterial({color:0x2a5020}));
+gnd.rotation.x = -Math.PI/2;
+gnd.position.set(WORLD/2, WORLD/2, 0);
+gnd.receiveShadow = true;
+scene.add(gnd);
+
+// ── Roads ──────────────────────────────────────────────
+var rMat  = new THREE.MeshLambertMaterial({color:0x1c1c1c});
+var mkMat = new THREE.MeshLambertMaterial({color:0xdddd88});
+var swMat = new THREE.MeshLambertMaterial({color:0x888877});
+for (var rp=20; rp<WORLD; rp+=20) {
+  var r1 = new THREE.Mesh(new THREE.BoxGeometry(WORLD,5,0.18), rMat);
+  r1.position.set(WORLD/2, rp, 0.06); scene.add(r1);
+  var r2 = new THREE.Mesh(new THREE.BoxGeometry(5,WORLD,0.18), rMat);
+  r2.position.set(rp, WORLD/2, 0.06); scene.add(r2);
+  for (var rm=8; rm<WORLD; rm+=12) {
+    var mk1 = new THREE.Mesh(new THREE.BoxGeometry(5,0.4,0.2), mkMat);
+    mk1.position.set(rm, rp, 0.09); scene.add(mk1);
+    var mk2 = new THREE.Mesh(new THREE.BoxGeometry(0.4,5,0.2), mkMat);
+    mk2.position.set(rp, rm, 0.09); scene.add(mk2);
+  }
+  for (var si=0; si<2; si++) {
+    var soff = si===0 ? -3.5 : 3.5;
+    var sw1 = new THREE.Mesh(new THREE.BoxGeometry(WORLD,1.5,0.12), swMat);
+    sw1.position.set(WORLD/2, rp+soff, 0.05); scene.add(sw1);
+    var sw2 = new THREE.Mesh(new THREE.BoxGeometry(1.5,WORLD,0.12), swMat);
+    sw2.position.set(rp+soff, WORLD/2, 0.05); scene.add(sw2);
+  }
+}
+
+// ── Buildings — grid-based, no overlaps ────────────────
+// 8x8 grid of 20m cells; buildings max 13x13 centered in each cell
+function dToZones(x,y) {
+  var mn = Infinity;
+  for (var zi=0; zi<ZONES.length; zi++) {
+    var dx=x-ZONES[zi].pos[0], dy=y-ZONES[zi].pos[1];
+    mn = Math.min(mn, Math.sqrt(dx*dx+dy*dy));
+  }
+  return mn;
+}
+var BCOLS = [0x5566aa,0x7755bb,0x8866aa,0x556688,0x447799,0xaa7755,
+             0x886655,0x99aa88,0x778899,0xaabb99,0x8899aa,0x6677bb,
+             0x9988cc,0xbb9966,0x88aacc,0x6655aa,0xaa8866,0x55aaaa];
+var bIdx = 0;
+var wMat2 = new THREE.MeshLambertMaterial({color:0xffffaa,emissive:0x554400,emissiveIntensity:0.5});
+for (var ci=0; ci<8; ci++) {
+  for (var cj=0; cj<8; cj++) {
+    var cx = ci*20+10, cy = cj*20+10;
+    if (dToZones(cx,cy) < 16) continue;
+    if (Math.random() < 0.28) continue;
+    // max 13x13 footprint = fits in 20m cell with 3.5m road clearance on each side
+    var bw = rnd(5,13), bd = rnd(5,13), bh = rnd(6,34);
+    var box = rnd(-1.5,1.5), boy = rnd(-1.5,1.5);
+    var bx = cx+box, by = cy+boy;
+    var col = BCOLS[bIdx % BCOLS.length]; bIdx++;
+    var bMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(bw,bd,bh),
+      new THREE.MeshLambertMaterial({color:col})
+    );
+    bMesh.position.set(bx,by,bh/2);
+    bMesh.castShadow = true; bMesh.receiveShadow = true;
+    scene.add(bMesh);
+    // Windows on 4 sides
+    var floors = Math.max(1, Math.floor(bh/3));
+    var wSides = [
+      [-bw/2-0.08, 0,        0.14,    bd*0.65],
+      [ bw/2+0.08, 0,        0.14,    bd*0.65],
+      [0,         -bd/2-0.08, bw*0.65, 0.14  ],
+      [0,          bd/2+0.08, bw*0.65, 0.14  ]
+    ];
+    for (var fl=0; fl<floors; fl++) {
+      for (var ws=0; ws<wSides.length; ws++) {
+        var wm = new THREE.Mesh(new THREE.BoxGeometry(wSides[ws][2], wSides[ws][3], 0.45), wMat2);
+        wm.position.set(bx+wSides[ws][0], by+wSides[ws][1], 2.5+fl*3);
+        scene.add(wm);
+      }
+    }
+    // Rooftop antenna
+    if (bh > 12 && Math.random() > 0.4) {
+      var rh = rnd(2,5);
+      var rm2 = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.45,rh,8),
+        new THREE.MeshLambertMaterial({color:0x444455}));
+      rm2.position.set(bx,by,bh+rh/2); scene.add(rm2);
+    }
+    SOL.push([[bx,by,bh/2], Math.sqrt(bw*bw+bd*bd)/2+2]);
+  }
+}
+
+// ── Trees ──────────────────────────────────────────────
+var tMat1 = new THREE.MeshLambertMaterial({color:0x3d7a2e});
+var tMat2 = new THREE.MeshLambertMaterial({color:0x2d6622});
+var trMat = new THREE.MeshLambertMaterial({color:0x5c3317});
+var treeSpots = [];
+for (var tci=0; tci<8; tci++) {
+  for (var tcj=0; tcj<8; tcj++) {
+    var tcx=tci*20+10, tcy=tcj*20+10;
+    if (dToZones(tcx,tcy) < 12) continue;
+    if (Math.random() < 0.5) continue;
+    var nt = Math.floor(rnd(2,5));
+    for (var tk=0; tk<nt; tk++) treeSpots.push([tcx+rnd(-7,7), tcy+rnd(-7,7)]);
+  }
+}
+// Edge trees
+for (var te=0; te<50; te++) treeSpots.push([rnd(2,WORLD-2), rnd(2,7)]);
+for (var te2=0; te2<50; te2++) treeSpots.push([rnd(2,WORLD-2), rnd(WORLD-7,WORLD-2)]);
+for (var te3=0; te3<35; te3++) treeSpots.push([rnd(2,7), rnd(2,WORLD-2)]);
+for (var te4=0; te4<35; te4++) treeSpots.push([rnd(WORLD-7,WORLD-2), rnd(2,WORLD-2)]);
+
+for (var ti=0; ti<treeSpots.length; ti++) {
+  var tx=treeSpots[ti][0], ty2=treeSpots[ti][1];
+  var th=rnd(3,7), tr2=rnd(1.5,3.2);
+  var trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.5,th,8), trMat);
+  trunk.position.set(tx,ty2,th/2); trunk.castShadow=true; scene.add(trunk);
+  for (var tli=0; tli<2; tli++) {
+    var cr=tr2*(0.9-tli*0.18), cz=th+tr2*(0.35+tli*0.6);
+    var crown = new THREE.Mesh(new THREE.SphereGeometry(cr,8,6), tli===0?tMat1:tMat2);
+    crown.position.set(tx,ty2,cz); crown.castShadow=true; scene.add(crown);
+  }
+  SOL.push([[tx,ty2,th+tr2], tr2+1.2]);
+}
+
+// ── Comm Towers ────────────────────────────────────────
+var BL = [];
+var towerPositions = [[32,32],[128,32],[128,128],[32,128],[80,50],[80,110]];
+for (var tpi=0; tpi<towerPositions.length; tpi++) {
+  var tpx=towerPositions[tpi][0], tpy=towerPositions[tpi][1];
+  if (dToZones(tpx,tpy) < 18) continue;
+  var tph = rnd(30,45);
+  var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.7,tph,8),
+    new THREE.MeshLambertMaterial({color:0x888899}));
+  pole.position.set(tpx,tpy,tph/2); pole.castShadow=true; scene.add(pole);
+  var dish = new THREE.Mesh(new THREE.SphereGeometry(3.2,10,8),
+    new THREE.MeshLambertMaterial({color:0xcc4400,emissive:0x441100,emissiveIntensity:0.4}));
+  dish.position.set(tpx,tpy,tph); scene.add(dish);
+  var bl = new THREE.PointLight(0xff2200,2.5,14);
+  bl.position.set(tpx,tpy,tph+2); scene.add(bl);
+  var bm = new THREE.Mesh(new THREE.SphereGeometry(0.4),
+    new THREE.MeshBasicMaterial({color:0xff2200}));
+  bm.position.set(tpx,tpy,tph+2.5); scene.add(bm);
+  BL.push({l:bl,m:bm});
+  SOL.push([[tpx,tpy,tph/2], 4]);
+}
+
+// ── Parked cars ────────────────────────────────────────
+var carCols=[0xff8800,0xff4400,0xffcc00,0x4488ff,0xff2255,0x44ff88,0xcc44ff];
+for (var ci2=0; ci2<30; ci2++) {
+  var cpx=rnd(5,WORLD-5), cpy=rnd(5,WORLD-5);
+  if (dToZones(cpx,cpy) < 9) continue;
+  var car = new THREE.Mesh(
+    new THREE.BoxGeometry(rnd(2.5,4), rnd(1.5,2.5), 1.0),
+    new THREE.MeshLambertMaterial({color:carCols[ci2%carCols.length]})
+  );
+  car.position.set(cpx,cpy,0.5);
+  car.rotation.z = rnd(0, Math.PI*2);
+  car.castShadow=true; scene.add(car);
+}
+
+// ── Moving vehicles ────────────────────────────────────
+var dynCols=[0xff7700,0xff5500,0xffaa00,0xff4422,0xff8833,0x44aaff,0xffcc44,0xff6633,0xffdd22,0xff3355];
+var dynM = [];
+for (var dmi=0; dmi<swarm.dynObs.length; dmi++) {
+  var dm = new THREE.Mesh(
+    new THREE.BoxGeometry(3.5,2,1.2),
+    new THREE.MeshLambertMaterial({color:dynCols[dmi%dynCols.length]})
+  );
+  dm.castShadow=true; scene.add(dm);
+  var dtop = new THREE.Mesh(new THREE.BoxGeometry(2,1.4,0.7),
+    new THREE.MeshLambertMaterial({color:0x222222}));
+  dtop.position.set(0,0,0.95); dm.add(dtop);
+  dynM.push(dm);
+}
+
+swarm.staticObs = SOL;
+
+// ── Drone meshes ───────────────────────────────────────
+function makeDrone(cn) {
+  var g = new THREE.Group();
+  var body = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.8,0.25),
+    new THREE.MeshLambertMaterial({color:cn,emissive:cn,emissiveIntensity:0.2}));
+  body.castShadow=true; g.add(body);
+  var dome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.22,8,6,0,Math.PI*2,0,Math.PI/2),
+    new THREE.MeshLambertMaterial({color:0x111122,emissive:0x0000ff,emissiveIntensity:0.3}));
+  dome.position.set(0,0,-0.14); g.add(dome);
+  var armPos = [[0.75,0],[-0.75,0],[0,0.75],[0,-0.75]];
+  for (var ai=0; ai<armPos.length; ai++) {
+    var ax=armPos[ai][0], ay=armPos[ai][1];
+    var arm = new THREE.Mesh(
+      new THREE.BoxGeometry(Math.abs(ax)>0?1.5:0.1, Math.abs(ay)>0?1.5:0.1, 0.08),
+      new THREE.MeshLambertMaterial({color:0x222233}));
+    arm.position.set(ax*0.35, ay*0.35, 0); g.add(arm);
+    var rotor = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.03,12),
+      new THREE.MeshBasicMaterial({color:0xbbbbdd,transparent:true,opacity:0.65}));
+    rotor.position.set(ax, ay, 0.1); g.add(rotor);
+    var ring = new THREE.Mesh(new THREE.TorusGeometry(0.4,0.03,4,16),
+      new THREE.MeshBasicMaterial({color:cn,transparent:true,opacity:0.4}));
+    ring.position.set(ax, ay, 0.1); g.add(ring);
+  }
+  var led = new THREE.PointLight(cn, 2.0, 8); g.add(led);
+  var spr = new THREE.Sprite(new THREE.SpriteMaterial({color:cn,transparent:true,opacity:0.28}));
+  spr.scale.set(5,5,1); g.add(spr);
+  return g;
+}
+var dMeshes = DHN.map(function(c){ var m=makeDrone(c); scene.add(m); return m; });
+
+// ── Navigator mesh ─────────────────────────────────────
+var navG = new THREE.Group();
+var navC = new THREE.Mesh(new THREE.OctahedronGeometry(1.2),
+  new THREE.MeshBasicMaterial({color:0xffdd00}));
+navG.add(navC);
+navG.add(new THREE.PointLight(0xffdd00, 4, 18));
+var navS = new THREE.Sprite(new THREE.SpriteMaterial({color:0xffdd00,transparent:true,opacity:0.32}));
+navS.scale.set(8,8,1); navG.add(navS);
+var navR = new THREE.Mesh(new THREE.TorusGeometry(2.8,0.14,8,32),
+  new THREE.MeshBasicMaterial({color:0xffdd00,transparent:true,opacity:0.4}));
+navR.rotation.x = Math.PI/2; navG.add(navR);
+scene.add(navG);
+
+// ── Patrol zone markers ────────────────────────────────
+var zMeshes=[], zRings=[], zLights=[], zBeams=[];
+for (var zi=0; zi<ZONES.length; zi++) {
+  var z = ZONES[zi];
+  var zCol = parseInt(z.color.replace('#',''), 16);
+  var circ = new THREE.Mesh(new THREE.CircleGeometry(11,32),
+    new THREE.MeshBasicMaterial({color:zCol,transparent:true,opacity:0.07,side:THREE.DoubleSide}));
+  circ.rotation.x = -Math.PI/2;
+  circ.position.set(z.pos[0], z.pos[1], 0.1); scene.add(circ);
+  var zring = new THREE.Mesh(new THREE.TorusGeometry(11,0.28,8,48),
+    new THREE.MeshBasicMaterial({color:zCol,transparent:true,opacity:0.5}));
+  zring.rotation.x = Math.PI/2;
+  zring.position.set(z.pos[0], z.pos[1], 0.3); scene.add(zring); zRings.push(zring);
+  var zsph = new THREE.Mesh(new THREE.SphereGeometry(2,16,12),
+    new THREE.MeshBasicMaterial({color:zCol,transparent:true,opacity:0.85}));
+  zsph.position.set(z.pos[0], z.pos[1], 2.8); scene.add(zsph); zMeshes.push(zsph);
+  var zbeam = new THREE.Mesh(new THREE.CylinderGeometry(0.3,2,ALT+14,12),
+    new THREE.MeshBasicMaterial({color:zCol,transparent:true,opacity:0.1,side:THREE.DoubleSide}));
+  zbeam.position.set(z.pos[0], z.pos[1], (ALT+14)/2); scene.add(zbeam); zBeams.push(zbeam);
+  var zpl = new THREE.PointLight(zCol, 3, 22);
+  zpl.position.set(z.pos[0], z.pos[1], 4); scene.add(zpl); zLights.push(zpl);
+  // Corner pillars
+  for (var pi=0; pi<4; pi++) {
+    var pa=pi*Math.PI/2+Math.PI/4, pr=10;
+    var pil = new THREE.Mesh(new THREE.BoxGeometry(0.45,0.45,4),
+      new THREE.MeshLambertMaterial({color:zCol,emissive:zCol,emissiveIntensity:0.3}));
+    pil.position.set(z.pos[0]+pr*Math.cos(pa), z.pos[1]+pr*Math.sin(pa), 2);
+    scene.add(pil);
+  }
+}
+// Route loop line
+var rPts = [];
+for (var rzi=0; rzi<ZONES.length; rzi++) rPts.push(new THREE.Vector3(ZONES[rzi].pos[0], ZONES[rzi].pos[1], 2));
+rPts.push(rPts[0].clone());
+scene.add(new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(rPts),
+  new THREE.LineBasicMaterial({color:0x225588,transparent:true,opacity:0.4})
+));
+
+// ── Trails ─────────────────────────────────────────────
+var TLEN = 80;
+function mkTrail(col) {
+  var pts = [];
+  for (var i=0; i<TLEN; i++) pts.push(new THREE.Vector3(0,0,-200));
+  var geo = new THREE.BufferGeometry().setFromPoints(pts);
+  var line = new THREE.Line(geo, new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.7}));
+  scene.add(line);
+  return {geo:geo};
+}
+var dTrails = DHN.map(function(c){ return mkTrail(c); });
+var nTrail = mkTrail(0xffdd00);
+
+// Path arrow cluster → target
+var pathPts = [new THREE.Vector3(), new THREE.Vector3()];
+var pathGeo = new THREE.BufferGeometry().setFromPoints(pathPts);
+var pathLine = new THREE.Line(pathGeo,
+  new THREE.LineBasicMaterial({color:0xff3344,transparent:true,opacity:0.65}));
+scene.add(pathLine);
+
+// ── Particles ──────────────────────────────────────────
+var PC = 600;
+var pBuf = new Float32Array(PC*3);
+for (var pi2=0; pi2<PC; pi2++) { pBuf[pi2*3]=pBuf[pi2*3+1]=pBuf[pi2*3+2]=-999; }
+var pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pBuf, 3));
+var pMesh = new THREE.Points(pGeo,
+  new THREE.PointsMaterial({color:0x88bbff,size:0.45,transparent:true,opacity:0.55,sizeAttenuation:true}));
+scene.add(pMesh);
+var pIdx = 0;
+function emitP() {
+  for (var di=0; di<swarm.drones.length; di++) {
+    var d = swarm.drones[di];
+    pBuf[pIdx*3]   = d.pos[0]+rnd(-0.9,0.9);
+    pBuf[pIdx*3+1] = d.pos[1]+rnd(-0.9,0.9);
+    pBuf[pIdx*3+2] = d.pos[2]-rnd(0.3,1.3);
+    pIdx = (pIdx+1) % PC;
+  }
+  pGeo.attributes.position.needsUpdate = true;
+}
+
+// ── Minimap ─────────────────────────────────────────────
+var mmCtx = document.getElementById('mm').getContext('2d');
+var SC = 185/WORLD;
+function drawMM() {
+  mmCtx.fillStyle='#030810'; mmCtx.fillRect(0,0,185,185);
+  mmCtx.strokeStyle='#1a1a1a'; mmCtx.lineWidth=4;
+  for (var rp2=20; rp2<WORLD; rp2+=20) {
+    mmCtx.beginPath(); mmCtx.moveTo(0,rp2*SC); mmCtx.lineTo(185,rp2*SC); mmCtx.stroke();
+    mmCtx.beginPath(); mmCtx.moveTo(rp2*SC,0); mmCtx.lineTo(rp2*SC,185); mmCtx.stroke();
+  }
+  mmCtx.strokeStyle='#224466'; mmCtx.lineWidth=1; mmCtx.globalAlpha=0.5;
+  mmCtx.beginPath();
+  for (var rzi2=0; rzi2<ZONES.length; rzi2++) {
+    var zp=ZONES[rzi2].pos;
+    if(rzi2===0) mmCtx.moveTo(zp[0]*SC, zp[1]*SC); else mmCtx.lineTo(zp[0]*SC, zp[1]*SC);
+  }
+  mmCtx.lineTo(ZONES[0].pos[0]*SC, ZONES[0].pos[1]*SC);
+  mmCtx.stroke(); mmCtx.globalAlpha=1;
+  var cc2=swarm.cc(), tz=ZONES[swarm.zI];
+  mmCtx.strokeStyle='#ff3344'; mmCtx.lineWidth=1.5; mmCtx.globalAlpha=0.8;
+  mmCtx.beginPath(); mmCtx.moveTo(cc2[0]*SC,cc2[1]*SC); mmCtx.lineTo(tz.pos[0]*SC,tz.pos[1]*SC); mmCtx.stroke();
+  mmCtx.globalAlpha=1;
+  for (var zi2=0; zi2<ZONES.length; zi2++) {
+    var zz=ZONES[zi2], active2=(zi2===swarm.zI);
+    mmCtx.fillStyle=zz.color; mmCtx.globalAlpha=active2?1:0.45;
+    mmCtx.beginPath(); mmCtx.arc(zz.pos[0]*SC, zz.pos[1]*SC, active2?7:4, 0, Math.PI*2); mmCtx.fill();
+    if (active2) {
+      mmCtx.strokeStyle=zz.color; mmCtx.lineWidth=1.5; mmCtx.globalAlpha=0.7;
+      mmCtx.beginPath(); mmCtx.arc(zz.pos[0]*SC, zz.pos[1]*SC, 12, 0, Math.PI*2); mmCtx.stroke();
+    }
+    mmCtx.globalAlpha=1;
+  }
+  var np=swarm.nav.pos;
+  mmCtx.fillStyle='#ffdd00'; mmCtx.globalAlpha=0.9;
+  mmCtx.beginPath(); mmCtx.arc(np[0]*SC, np[1]*SC, 5, 0, Math.PI*2); mmCtx.fill();
+  mmCtx.globalAlpha=1;
+  for (var dri=0; dri<swarm.drones.length; dri++) {
+    var dr=swarm.drones[dri];
+    mmCtx.fillStyle=DHX[dri]; mmCtx.globalAlpha=0.85;
+    mmCtx.beginPath(); mmCtx.arc(dr.pos[0]*SC, dr.pos[1]*SC, 4, 0, Math.PI*2); mmCtx.fill();
+    mmCtx.globalAlpha=1;
+  }
+}
+
+// ── HUD updates ─────────────────────────────────────────
+function buildZL() {
+  var html='';
+  for (var zi3=0; zi3<ZONES.length; zi3++) {
+    var z3=ZONES[zi3], active3=(zi3===swarm.zI);
+    var cls3=active3?'active':'pending';
+    var stxt=active3?'EN ROUTE':'PENDING';
+    var scol=active3?z3.color:'#445';
+    html+='<div class="zone-row '+cls3+'">'+
+      '<div class="zone-num" style="background:'+(active3?z3.color+'22':'#111')+';color:'+z3.color+';border:1px solid '+z3.color+'44">'+(zi3+1)+'</div>'+
+      '<div class="zone-info">'+
+        '<div class="zone-name" style="color:'+(active3?z3.color:'#cce8ff')+'">'+z3.name+'</div>'+
+        '<div class="zone-desc">'+z3.desc+'</div>'+
+      '</div>'+
+      '<div class="zone-status" style="color:'+scol+'">'+stxt+'</div>'+
+    '</div>';
+  }
+  document.getElementById('zone-list').innerHTML=html;
+}
+function buildDC(spds) {
+  var html='';
+  for (var di2=0; di2<DHX.length; di2++) {
+    var c2=DHX[di2], spd2=spds[di2]||0, pct=Math.min(100,spd2/MAXSPD*100);
+    html+='<div class="dcard">'+
+      '<div class="ddot" style="background:'+c2+';box-shadow:0 0 5px '+c2+'"></div>'+
+      '<div class="dname">UAV-'+(di2+1)+'</div>'+
+      '<div class="dbar-wrap"><div class="dbar-fill" style="width:'+pct+'%;background:'+c2+'"></div></div>'+
+      '<div class="dspd">'+spd2.toFixed(1)+'m/s</div>'+
+    '</div>';
+  }
+  document.getElementById('drone-cards').innerHTML=html;
+}
+function updateHUD(tel) {
+  document.getElementById('m-t').textContent  = tel.t.toFixed(1)+' s';
+  document.getElementById('tt').textContent   = tel.t.toFixed(1)+'s';
+  document.getElementById('m-spd').textContent= tel.meanSpd.toFixed(2)+' m/s';
+  document.getElementById('ts').textContent   = tel.meanSpd.toFixed(1);
+  document.getElementById('m-hd').textContent = tel.maxHD.toFixed(2)+' m';
+  var nd=document.getElementById('m-nd');
+  nd.textContent=tel.navDist.toFixed(1)+' m';
+  nd.className='val'+(tel.navDist>22?' w':' g');
+  document.getElementById('m-nb').textContent = tel.mNbr.toFixed(1)+' m';
+  document.getElementById('m-ca').textContent = tel.avoided;
+  document.getElementById('m-tgt').textContent= tel.total;
+  document.getElementById('m-eps').textContent= (tel.eps*100).toFixed(0)+'%';
+  document.getElementById('pb-eps').style.width=(tel.eps*100)+'%';
+  document.getElementById('m-ppo').textContent= tel.ppoIter;
+  document.getElementById('m-form').textContent=tel.form.toFixed(0)+'%';
+  document.getElementById('tr').textContent   = swarm.round;
+  buildDC(tel.spds); buildZL();
+}
+
+// ── Camera ─────────────────────────────────────────────
+var camMode=0, fDrone=-1, fNav=false;
+var camAng=0.8, camDist=110, camH=100, autoRot=false;
+var camTgt = new THREE.Vector3(WORLD/2, WORLD/2, 0);
+function camUpdate() {
+  var cc3=swarm.cc();
+  var lookAt;
+  if (fNav) {
+    camTgt.lerp(new THREE.Vector3(swarm.nav.pos[0], swarm.nav.pos[1], 0), 0.04);
+  } else if (fDrone>=0) {
+    var dp=swarm.drones[fDrone].pos;
+    camTgt.lerp(new THREE.Vector3(dp[0],dp[1],0), 0.05);
+  } else {
+    camTgt.lerp(new THREE.Vector3(cc3[0],cc3[1],0), 0.02);
+  }
+
+  if (camMode===0) {
+    // Isometric landscape view — level horizon, see whole city clearly
+    if (autoRot) camAng+=0.002;
+    var cx = camTgt.x + camDist*0.7*Math.sin(camAng);
+    var cy = camTgt.y - camDist*0.7*Math.cos(camAng);
+    camera.position.lerp(new THREE.Vector3(cx, cy, camH), 0.035);
+    camera.lookAt(new THREE.Vector3(camTgt.x, camTgt.y, 0));
+    camera.up.set(0, 0, 1);
+  } else if (camMode===1) {
+    // Pure top-down overhead
+    camera.position.lerp(new THREE.Vector3(WORLD/2, WORLD/2, 220), 0.04);
+    camera.lookAt(new THREE.Vector3(WORLD/2, WORLD/2, 0));
+    camera.up.set(0, 1, 0);
+  } else if (camMode===2) {
+    // Low cinematic follow — drone-level view
+    camAng+=0.0025;
+    var lx=cc3[0]+camDist*0.35*Math.sin(camAng);
+    var ly=cc3[1]-camDist*0.35*Math.cos(camAng);
+    camera.position.lerp(new THREE.Vector3(lx, ly, 25), 0.045);
+    camera.lookAt(new THREE.Vector3(cc3[0], cc3[1], 12));
+    camera.up.set(0, 0, 1);
+  } else {
+    // Wide overview — full city visible, flat horizon
+    camera.position.lerp(new THREE.Vector3(WORLD/2, -15, 170), 0.025);
+    camera.lookAt(new THREE.Vector3(WORLD/2, WORLD/2, 0));
+    camera.up.set(0, 0, 1);
+  }
+}
+
+function showAnn(z) {
+  document.getElementById('ann-zone').textContent = z.name;
+  document.getElementById('ann-zone').style.color = z.color;
+  document.getElementById('ann-desc').textContent = z.desc;
+  var el=document.getElementById('announce');
+  el.style.display='block'; el.style.borderColor=z.color+'55';
+  annT=180;
+}
+
+// ── Render loop ─────────────────────────────────────────
+var paused=false, simSpd=1;
+var fpsC=0, fpsT=Date.now(), fpsV=0;
+var flashT=0, annT=0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  fpsC++;
+  var now=Date.now();
+  if (now-fpsT>600) {
+    fpsV=Math.round(fpsC*1000/(now-fpsT)); fpsC=0; fpsT=now;
+    document.getElementById('tf').textContent=fpsV;
+  }
+  if (!paused) {
+    var stepsN = Math.max(1, Math.round(simSpd * 2));
+    for (var s=0; s<stepsN; s++) swarm.step(DT);
+    if (swarm.justArrived) { flashT=30; showAnn(swarm.arrivedZone); }
+    emitP();
+
+    // Sync drones
+    for (var di3=0; di3<swarm.drones.length; di3++) {
+      var dr2=swarm.drones[di3], m=dMeshes[di3];
+      m.position.set(dr2.pos[0], dr2.pos[1], dr2.pos[2]);
+      var spd3=vlen(dr2.vel);
+      if (spd3>0.4) {
+        var pitch=-Math.atan2(dr2.vel[2], Math.sqrt(dr2.vel[0]*dr2.vel[0]+dr2.vel[1]*dr2.vel[1]));
+        var yaw=Math.atan2(dr2.vel[1], dr2.vel[0]);
+        m.rotation.set(pitch*0.38, 0, yaw);
+      }
+      for (var ci3=0; ci3<m.children.length; ci3++) {
+        if (m.children[ci3].isMesh && ci3>=3) m.children[ci3].rotation.y+=0.35*simSpd;
+      }
+    }
+
+    // Navigator
+    navG.position.set(swarm.nav.pos[0], swarm.nav.pos[1], swarm.nav.pos[2]);
+    navC.rotation.y+=0.04; navC.rotation.z+=0.025; navR.rotation.z+=0.02;
+
+    // Dynamic vehicles
+    for (var dmi2=0; dmi2<swarm.dynObs.length; dmi2++) {
+      var dv=swarm.dynObs[dmi2];
+      dynM[dmi2].position.set(dv.pos[0], dv.pos[1], 0.8);
+      dynM[dmi2].rotation.z=Math.atan2(dv.vel[1], dv.vel[0]+1e-9);
+    }
+
+    // Trails
+    for (var dti=0; dti<swarm.drones.length; dti++) {
+      var dtr=swarm.drones[dti], tgeo=dTrails[dti].geo;
+      var tpa=tgeo.attributes.position;
+      var tn=Math.min(dtr.trail.length, TLEN);
+      for (var tj=0; tj<tn; tj++) {
+        var tpt=dtr.trail[dtr.trail.length-tn+tj];
+        tpa.setXYZ(tj, tpt[0], tpt[1], tpt[2]);
+      }
+      for (var tj2=tn; tj2<TLEN; tj2++) tpa.setXYZ(tj2, dtr.pos[0], dtr.pos[1], dtr.pos[2]);
+      tpa.needsUpdate=true;
+    }
+    var nt2=swarm.nav.trail, npa=nTrail.geo.attributes.position, nn=Math.min(nt2.length,TLEN);
+    for (var nj=0; nj<nn; nj++) { var npt=nt2[nt2.length-nn+nj]; npa.setXYZ(nj,npt[0],npt[1],npt[2]); }
+    for (var nj2=nn; nj2<TLEN; nj2++) npa.setXYZ(nj2, swarm.nav.pos[0], swarm.nav.pos[1], swarm.nav.pos[2]);
+    npa.needsUpdate=true;
+
+    // Path line
+    var cc4=swarm.cc(), tz2=ZONES[swarm.zI];
+    var pp=pathLine.geometry.attributes.position;
+    pp.setXYZ(0, cc4[0], cc4[1], cc4[2]);
+    pp.setXYZ(1, tz2.pos[0], tz2.pos[1], tz2.pos[2]);
+    pp.needsUpdate=true;
+
+    // Zone animations
+    var pulse=Math.sin(Date.now()*0.004);
+    for (var zi4=0; zi4<ZONES.length; zi4++) {
+      var z4=ZONES[zi4], active4=(zi4===swarm.zI);
+      var zc4=parseInt(z4.color.replace('#',''),16);
+      zMeshes[zi4].material.opacity=active4?0.9+pulse*0.08:0.3;
+      zMeshes[zi4].material.color.set(active4?zc4:0x334455);
+      zRings[zi4].material.opacity=active4?0.65+pulse*0.15:0.12;
+      zRings[zi4].scale.set(1+0.08*pulse*(active4?1:0), 1+0.08*pulse*(active4?1:0), 1);
+      zLights[zi4].intensity=active4?3.5+pulse*1.2:0.5;
+      zBeams[zi4].material.opacity=active4?0.18+pulse*0.06:0.04;
+    }
+
+    // Tower blink
+    var blink=Math.sin(Date.now()*0.007)>0.3;
+    for (var bli=0; bli<BL.length; bli++) { BL[bli].l.intensity=blink?3:0; BL[bli].m.visible=blink; }
+
+    // HUD
+    var tel=swarm.tel(); updateHUD(tel); drawMM();
+    var st=document.getElementById('status'), zn=ZONES[swarm.zI];
+    st.textContent='● → '+zn.name;
+    st.style.color=zn.color; st.style.borderColor=zn.color+'44';
+  } else {
+    var st2=document.getElementById('status');
+    st2.textContent='PAUSED'; st2.style.color='#ffaa00'; st2.style.borderColor='#ffaa0044';
+  }
+
+  if (flashT>0) { document.getElementById('flash').style.opacity=flashT/30; flashT--; }
+  else document.getElementById('flash').style.opacity=0;
+  if (annT>0) { annT--; if(annT===0) document.getElementById('announce').style.display='none'; }
+
+  camUpdate();
+  renderer.render(scene, camera);
+}
+
+// ── Controls ───────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  var k=e.key;
+  if (k===' '||k==='p'||k==='P') { paused=!paused; e.preventDefault(); }
+  else if (k==='c'||k==='C') { camMode=(camMode+1)%4; fDrone=-1; fNav=false; }
+  else if (k==='r'||k==='R') { swarm.reset(); document.getElementById('announce').style.display='none'; }
+  else if (k==='+'||k==='=') { simSpd=Math.min(4, simSpd+0.25); }
+  else if (k==='-'||k==='_') { simSpd=Math.max(0.25, simSpd-0.25); }
+  else if (k==='a'||k==='A') { autoRot=!autoRot; }
+  else if (k==='f'||k==='F') { fDrone=(fDrone+1)%N; fNav=false; camMode=0; }
+  else if (k==='g'||k==='G') { fNav=true; fDrone=-1; camMode=0; }
+  else if (k==='q'||k==='Q') { camDist=Math.max(40,camDist-8); camH=Math.max(40,camH-5); }
+  else if (k==='e'||k==='E') { camDist=Math.min(160,camDist+8); camH=Math.min(180,camH+5); }
+  else if (k>='1'&&k<='5') {
+    var zi5=parseInt(k)-1;
+    swarm.zI=zi5; swarm.nav.target=ZONES[zi5].pos.slice();
+  }
+});
+
+window.addEventListener('resize', function() {
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── Start ──────────────────────────────────────────────
+buildDC(new Array(N).fill(0));
+buildZL();
+animate();
+console.log('%cEN-MASCA 160x160m City Patrol Ready','color:#00d4ff;font-size:14px;font-weight:bold');
+console.log('SPACE=Pause | C=Camera | R=Reset | +/-=Speed | F=Follow | G=Nav | A=Rotate | 1-5=Zone');
+
+})();
+</script>
+</body>
+</html>
