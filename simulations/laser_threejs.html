@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EN-MASCA Laser Deterrent — City Patrol</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#07111a;overflow:hidden;font-family:'Courier New',monospace}
+canvas{display:block}
+
+#topbar{
+  position:fixed;top:0;left:0;right:0;height:46px;
+  background:rgba(3,12,28,0.96);border-bottom:1px solid #00d4ff22;
+  display:flex;align-items:center;padding:0 16px;gap:18px;z-index:20;
+}
+.logo{color:#00d4ff;font-size:13px;font-weight:bold;letter-spacing:3px}
+.badge{padding:2px 12px;border-radius:20px;font-size:9px;letter-spacing:1.5px}
+.badge-laser{border:1px solid #00ff8844;color:#00ff88}
+.badge-algo{border:1px solid #00d4ff44;color:#00d4ff}
+#status-txt{font-size:10px;letter-spacing:1px;padding:2px 12px;border-radius:20px}
+.st-patrol{border:1px solid #00ff8844;color:#00ff88}
+.st-threat{border:1px solid #ff440044;color:#ff4400;animation:blink 0.6s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.5}}
+#topright{margin-left:auto;display:flex;gap:16px;align-items:center}
+.tstat{color:#445566;font-size:9px;letter-spacing:1px}.tstat span{color:#aaccee;font-weight:bold}
+
+/* LEFT PANEL — telemetry */
+#panel-l{
+  position:fixed;top:54px;left:12px;width:230px;
+  background:rgba(3,10,22,0.93);border:1px solid #00d4ff18;
+  border-radius:10px;padding:12px 14px;z-index:20;
+}
+.pt{color:#00d4ff;font-size:9px;letter-spacing:2px;text-transform:uppercase;
+    border-bottom:1px solid #00d4ff18;padding-bottom:5px;margin-bottom:10px}
+.row{display:flex;justify-content:space-between;margin-bottom:6px}
+.lbl{color:#445566;font-size:10px}.val{color:#cce8ff;font-size:10px;font-weight:bold}
+.val.g{color:#00ff88}.val.w{color:#ffaa00}.val.r{color:#ff4444}
+.pb{height:3px;background:#0a1525;border-radius:2px;margin-bottom:8px;overflow:hidden}
+.pf{height:100%;border-radius:2px;transition:width 0.3s}
+
+/* RIGHT PANEL — threat list */
+#panel-r{
+  position:fixed;top:54px;right:12px;width:220px;
+  background:rgba(3,10,22,0.93);border:1px solid #00d4ff18;
+  border-radius:10px;padding:12px 14px;z-index:20;
+}
+.tcard{
+  display:flex;align-items:center;gap:8px;padding:5px 7px;
+  border-radius:6px;margin-bottom:4px;border:1px solid transparent;
+  transition:all 0.3s;
+}
+.tcard.flagged{border-color:#ff440044;background:rgba(255,50,0,0.08)}
+.tcard.lasering{border-color:#00ff4455;background:rgba(0,255,68,0.08);animation:blink 0.4s infinite}
+.tdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.tinfo{flex:1}
+.tname{font-size:10px;font-weight:bold;color:#cce8ff}
+.tstate{font-size:9px;color:#556677}
+.tscore{font-size:10px;font-weight:bold;min-width:30px;text-align:right}
+
+/* DRONE CARDS */
+#panel-drones{
+  position:fixed;bottom:44px;right:12px;width:220px;
+  background:rgba(3,10,22,0.93);border:1px solid #00d4ff18;
+  border-radius:10px;padding:12px 14px;z-index:20;
+}
+.dcard{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.ddot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dname{color:#8899aa;font-size:9px;width:40px}
+.dbar-w{flex:1;height:3px;background:#0a1525;border-radius:2px;overflow:hidden}
+.dbar-f{height:100%;border-radius:2px;transition:width 0.2s}
+.dstate{font-size:9px;font-weight:bold;min-width:46px;text-align:right}
+
+/* MINIMAP */
+#minimap{
+  position:fixed;bottom:44px;left:12px;width:185px;height:185px;
+  background:rgba(3,10,22,0.93);border:1px solid #00d4ff22;
+  border-radius:10px;overflow:hidden;z-index:20;
+}
+#mm{width:100%;height:100%}
+.mm-lbl{position:absolute;top:6px;left:9px;color:#00d4ff66;font-size:8px;letter-spacing:1.5px}
+.mm-sc{position:absolute;bottom:6px;right:7px;color:#334455;font-size:8px}
+
+/* EVENT LOG */
+#event-log{
+  position:fixed;bottom:44px;left:210px;width:280px;max-height:180px;
+  background:rgba(3,10,22,0.93);border:1px solid #00d4ff18;
+  border-radius:10px;padding:10px 12px;z-index:20;overflow-y:auto;
+}
+.ev-entry{font-size:9px;padding:3px 0;border-bottom:1px solid #0d1a2e;
+  display:flex;gap:8px;align-items:center}
+.ev-t{color:#334455;min-width:36px}.ev-msg{color:#aaccee;flex:1}
+.ev-laser{color:#00ff88;font-weight:bold}
+.ev-threat{color:#ff6600;font-weight:bold}
+
+/* BOTTOM BAR */
+#bottombar{
+  position:fixed;bottom:0;left:0;right:0;height:36px;
+  background:rgba(3,10,22,0.96);border-top:1px solid #00d4ff18;
+  display:flex;align-items:center;justify-content:center;gap:20px;z-index:20;
+}
+.kh{color:#334455;font-size:9px;letter-spacing:1px}.kh b{color:#00d4ffaa}
+
+/* FLASH overlay when laser fires */
+#flash{
+  position:fixed;inset:0;pointer-events:none;z-index:15;
+  opacity:0;background:rgba(0,255,100,0.05);transition:opacity 0.06s;
+}
+
+/* INTERCEPT ANNOUNCE */
+#announce{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(3,15,35,0.96);border:1px solid;
+  border-radius:12px;padding:16px 30px;text-align:center;
+  z-index:30;display:none;
+}
+#announce .atitle{font-size:9px;letter-spacing:3px;margin-bottom:5px}
+#announce .azone{font-size:19px;font-weight:bold;margin-bottom:3px}
+#announce .adesc{color:#556677;font-size:9px}
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+
+<div id="topbar">
+  <div class="logo">⬡ EN-MASCA</div>
+  <div class="badge badge-laser">LASER DETERRENT</div>
+  <div class="badge badge-algo">DQN + PPO + AUCTION</div>
+  <div id="status-txt" class="st-patrol">● PATROLLING</div>
+  <div id="topright">
+    <div class="tstat">T <span id="tt">0s</span></div>
+    <div class="tstat">INTERCEPTS <span id="ti">0</span></div>
+    <div class="tstat">THREATS <span id="th2">0</span></div>
+    <div class="tstat">FPS <span id="tf">--</span></div>
+  </div>
+</div>
+
+<div id="panel-l">
+  <div class="pt">Mission Telemetry</div>
+  <div class="row"><span class="lbl">Sim Time</span><span class="val" id="m-t">0.0 s</span></div>
+  <div class="row"><span class="lbl">Mean Speed</span><span class="val" id="m-spd">0.0 m/s</span></div>
+  <div class="row"><span class="lbl">Threats Flagged</span><span class="val r" id="m-flag">0</span></div>
+  <div class="row"><span class="lbl">Intercepting</span><span class="val w" id="m-int">0</span></div>
+  <div class="row"><span class="lbl">Lasers Fired</span><span class="val g" id="m-las">0</span></div>
+  <div class="row"><span class="lbl">Patrol Zone</span><span class="val" id="m-zone">1/5</span></div>
+  <div class="row"><span class="lbl">Formation Score</span><span class="val g" id="m-form">--</span></div>
+  <div style="margin-top:9px">
+  <div class="pt">Algorithm Status</div>
+  <div class="row"><span class="lbl">DQN ε (explore)</span><span class="val w" id="m-eps">80%</span></div>
+  <div class="pb"><div class="pf" id="pb-eps" style="width:80%;background:linear-gradient(90deg,#ff6600,#ffdd00)"></div></div>
+  <div class="row"><span class="lbl">PPO Iterations</span><span class="val" id="m-ppo">0</span></div>
+  <div class="row"><span class="lbl">Auction Bids</span><span class="val" id="m-bids">0</span></div>
+  </div>
+</div>
+
+<div id="panel-r">
+  <div class="pt">Threat Entities</div>
+  <div id="threat-cards"></div>
+</div>
+
+<div id="panel-drones">
+  <div class="pt">Drone Status</div>
+  <div id="drone-cards"></div>
+</div>
+
+<div id="minimap">
+  <canvas id="mm" width="185" height="185"></canvas>
+  <div class="mm-lbl">TACTICAL MAP</div>
+  <div class="mm-sc">80m</div>
+</div>
+
+<div id="event-log">
+  <div class="pt" style="margin-bottom:6px">Event Log</div>
+  <div id="log-entries"></div>
+</div>
+
+<div id="bottombar">
+  <span class="kh"><b>SPACE</b> Pause</span>
+  <span class="kh"><b>C</b> Camera</span>
+  <span class="kh"><b>R</b> Reset</span>
+  <span class="kh"><b>+/-</b> Speed</span>
+  <span class="kh"><b>F</b> Follow drone</span>
+  <span class="kh"><b>L</b> Follow laser</span>
+  <span class="kh"><b>1-5</b> Jump zone</span>
+</div>
+
+<div id="flash"></div>
+<div id="announce">
+  <div class="atitle" id="ann-title">LASER FIRED</div>
+  <div class="azone" id="ann-zone">--</div>
+  <div class="adesc" id="ann-desc">--</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+// ═══════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════
+var W=80, N=6, ALT=8, MAXSPD=6, DT=0.04;
+var THREAT_THRESH=0.62, LASER_ALT=5.5, LASER_RANGE=28;
+var LASER_PULSES=3, PULSE_DUR=0.5;
+var PATROL=[
+  [15,15,ALT],[65,20,ALT],[70,65,ALT],[40,45,ALT],[12,60,ALT]
+];
+var DCOLS_HEX=['#0099ff','#00ff88','#ff6600','#cc44ff','#ffdd00','#ff2255'];
+var DCOLS_NUM=[0x0099ff,0x00ff88,0xff6600,0xcc44ff,0xffdd00,0xff2255];
+var ENTITY_COLS={normal:0x33cc55,loitering:0xffcc00,aggressive:0xff2222,fleeing:0x3388ff};
+var ENTITY_COL_HEX={normal:'#33cc55',loitering:'#ffcc00',aggressive:'#ff2222',fleeing:'#3388ff'};
+
+// ═══════════════════════════════════════════════════════
+// MATH
+// ═══════════════════════════════════════════════════════
+function vl(a){return Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]);}
+function vn(a){var l=vl(a)+1e-9;return[a[0]/l,a[1]/l,a[2]/l];}
+function va(a,b){return[a[0]+b[0],a[1]+b[1],a[2]+b[2]];}
+function vs(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]];}
+function vm(a,s){return[a[0]*s,a[1]*s,a[2]*s];}
+function vd(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+function cl(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+function rn(lo,hi){return lo+Math.random()*(hi-lo);}
+function avg(arr){return arr.reduce(function(s,v){return s+v;},0)/arr.length;}
+
+// ═══════════════════════════════════════════════════════
+// THREAT ENTITY
+// ═══════════════════════════════════════════════════════
+function ThreatEntity(id, pos, behavior){
+  this.id=id; this.pos=[pos[0],pos[1],0];
+  var a=rn(0,Math.PI*2), sp=rn(0.4,1.2);
+  this.vel=[Math.cos(a)*sp,Math.sin(a)*sp,0];
+  this.behavior=behavior;
+  this.score=0; this.flagged=false; this.laserHits=0;
+  this.step=0; this.tgt=null; this.mesh=null; this.labelId=-1;
+}
+ThreatEntity.prototype.update=function(dt){
+  this.step++;
+  if(this.behavior==='normal'){
+    if(this.step%80===0||!this.tgt){
+      var a=rn(0,Math.PI*2),d=rn(5,15);
+      this.tgt=[cl(this.pos[0]+d*Math.cos(a),3,W-3),cl(this.pos[1]+d*Math.sin(a),3,W-3)];
+    }
+    var tx=this.tgt[0]-this.pos[0],ty=this.tgt[1]-this.pos[1];
+    var td=Math.sqrt(tx*tx+ty*ty);
+    if(td>0.5){this.vel[0]=tx/td*0.8;this.vel[1]=ty/td*0.8;}
+    else{this.vel[0]=0;this.vel[1]=0;}
+  } else if(this.behavior==='aggressive'){
+    if(this.step%40===0){
+      var a2=rn(0,Math.PI*2),sp2=rn(1.5,3.5);
+      this.vel=[Math.cos(a2)*sp2,Math.sin(a2)*sp2,0];
+    }
+    if(this.step%120<20){this.vel[0]*=0.5;this.vel[1]*=0.5;}
+  } else if(this.behavior==='fleeing'){
+    var sp3=this.laserHits>0?2.5:0.6;
+    if(this.step%30===0){
+      var a3=rn(0,Math.PI*2);
+      this.tgt=[cl(this.pos[0]+20*Math.cos(a3),3,W-3),cl(this.pos[1]+20*Math.sin(a3),3,W-3)];
+    }
+    if(this.tgt){
+      var tx2=this.tgt[0]-this.pos[0],ty2=this.tgt[1]-this.pos[1];
+      var td2=Math.sqrt(tx2*tx2+ty2*ty2);
+      if(td2>0.5){this.vel[0]=tx2/td2*sp3;this.vel[1]=ty2/td2*sp3;}
+    }
+  } else if(this.behavior==='loitering'){
+    if(this.step%200===0){this.vel[0]=rn(-0.3,0.3);this.vel[1]=rn(-0.3,0.3);}
+  }
+  this.pos[0]+=this.vel[0]*dt; this.pos[1]+=this.vel[1]*dt;
+  this.pos[0]=cl(this.pos[0],1,W-1); this.pos[1]=cl(this.pos[1],1,W-1); this.pos[2]=0;
+};
+ThreatEntity.prototype.scoreDQN=function(dronePosArr){
+  var s=0, sp=vl(this.vel);
+  if(sp>2.5)s+=0.35; else if(sp>1.5)s+=0.15;
+  var bmap={normal:0.05,loitering:0.20,fleeing:0.30,aggressive:0.55};
+  s+=bmap[this.behavior]||0;
+  if(dronePosArr.length>0){
+    var minD=Infinity;
+    for(var i=0;i<dronePosArr.length;i++){
+      var d=vl(vs(this.pos,dronePosArr[i]));
+      if(d>0.1&&d<minD)minD=d;
+    }
+    s+=Math.min(0.15, 0.05*Math.max(0,3-minD/10));
+  }
+  if(this.step%40<5&&this.behavior==='aggressive')s+=0.10;
+  this.score=cl(s+(Math.random()-0.5)*0.08,0,1);
+  this.flagged=this.score>=THREAT_THRESH;
+  return this.score;
+};
+
+// ═══════════════════════════════════════════════════════
+// DISTRIBUTED AUCTION
+// ═══════════════════════════════════════════════════════
+function auctionAssign(drones, threatPos){
+  var bids=[];
+  for(var i=0;i<drones.length;i++){
+    if(drones[i].intercepting)continue;
+    var d=Math.max(0.1,vl(vs(drones[i].pos,threatPos)));
+    var bid=(1/d)*drones[i].battery*(1-drones[i].taskLoad);
+    bids.push({idx:i,bid:bid});
+  }
+  if(!bids.length)return -1;
+  bids.sort(function(a,b){return b.bid-a.bid;});
+  return bids[0].idx;
+}
+
+// ═══════════════════════════════════════════════════════
+// DRONE AGENT (EN-MASCA)
+// ═══════════════════════════════════════════════════════
+function Drone(id, pos){
+  this.id=id; this.pos=[pos[0],pos[1],pos[2]];
+  this.vel=[(Math.random()-0.5)*0.2,(Math.random()-0.5)*0.2,0];
+  this.trail=[]; this.eps=0.85;
+  this.taskLoad=0; this.battery=1.0;
+  this.intercepting=false; this.interTgt=null;
+  this.laserFiring=false; this.laserTimer=0; this.laserPulses=0;
+  this.ppoIter=0; this.hidden=new Array(8).fill(0);
+  this.mesh=null; this.laserLine=null;
+  this.totalLaserFired=0;
+}
+Drone.prototype.pz=function(navPos,navVel){
+  var toN=vs(navPos,this.pos);
+  return va(vm(vn(toN),5.0), vm(vs(navVel,this.vel),0.8));
+};
+Drone.prototype.px=function(nbrs){
+  var f=[0,0,0];
+  for(var i=0;i<nbrs.length;i++){
+    var d=vs(nbrs[i].pos,this.pos),dist=vl(d);
+    if(dist>0.1&&dist<25){
+      var fm=(dist-8.0)*0.12;
+      f=va(f,vm(vn(d),fm));
+    }
+  }
+  return f;
+};
+Drone.prototype.py=function(obs){
+  var f=[0,0,0];
+  for(var i=0;i<obs.length;i++){
+    var away=vs(this.pos,obs[i][0]),dist=vl(away),mg=obs[i][1]+4;
+    if(dist>0&&dist<mg){
+      var s=(mg-dist)/mg;
+      f=va(f,vm(vn(away),s*s*10));
+    }
+  }
+  return f;
+};
+Drone.prototype.dqnSteer=function(tgt){
+  var toT=vs(tgt,this.pos),dist=vl(toT),tDir=vn(toT);
+  this.eps=Math.max(0.04,this.eps*0.9999);
+  var d;
+  if(Math.random()<this.eps){
+    var noise=[(Math.random()-0.5)*0.3,(Math.random()-0.5)*0.3,0];
+    d=vn(va(tDir,noise));
+  } else { d=tDir; }
+  return vm(d,Math.min(MAXSPD*0.8,2.0+dist*0.06));
+};
+Drone.prototype.updatePatrol=function(navPos,navVel,nbrs,obs,tgt,dt){
+  var pz=this.pz(navPos,navVel);
+  var px=this.px(nbrs);
+  var py=this.py(obs);
+  var dqn=this.dqnSteer(tgt);
+  var az=[0,0,(ALT-this.pos[2])*5];
+  var acc=[
+    pz[0]+px[0]*0.35+py[0]+dqn[0]*0.5+az[0],
+    pz[1]+px[1]*0.35+py[1]+dqn[1]*0.5+az[1],
+    pz[2]+px[2]*0.35+py[2]+dqn[2]*0.5+az[2]
+  ];
+  this.vel[0]+=acc[0]*dt; this.vel[1]+=acc[1]*dt; this.vel[2]+=acc[2]*dt;
+  this.vel[0]*=0.978; this.vel[1]*=0.978; this.vel[2]*=0.96;
+  var sp=vl(this.vel);
+  if(sp>MAXSPD)this.vel=vm(this.vel,MAXSPD/sp);
+  else if(sp<2.0&&sp>0)this.vel=vm(this.vel,2.0/sp);
+  this.pos[0]+=this.vel[0]*dt; this.pos[1]+=this.vel[1]*dt; this.pos[2]+=this.vel[2]*dt;
+  this._clamp();
+  this.trail.push(this.pos.slice());
+  if(this.trail.length>80)this.trail.shift();
+  this.battery=Math.max(0.1,this.battery-0.00002);
+  this.taskLoad=0.1;
+  if(this.trail.length%32===0)this.ppoIter++;
+};
+// PD controller for intercept hover
+Drone.prototype.updateIntercept=function(threat,dt){
+  var hoverPos=[threat.pos[0],threat.pos[1],threat.pos[2]+LASER_ALT];
+  var err=vs(hoverPos,this.pos);
+  var derr=vs([0,0,0],this.vel);
+  var u=va(vm(err,6.0),vm(derr,1.5));
+  this.vel[0]+=u[0]*dt; this.vel[1]+=u[1]*dt; this.vel[2]+=u[2]*dt;
+  var sp=vl(this.vel);
+  if(sp>MAXSPD)this.vel=vm(this.vel,MAXSPD/sp);
+  this.pos[0]+=this.vel[0]*dt; this.pos[1]+=this.vel[1]*dt; this.pos[2]+=this.vel[2]*dt;
+  this._clamp();
+  this.trail.push(this.pos.slice());
+  if(this.trail.length>80)this.trail.shift();
+  this.taskLoad=0.9;
+  var distHover=vl(vs(this.pos,hoverPos));
+  // Start firing when close enough
+  if(distHover<3.0){
+    this.laserFiring=true;
+    this.laserTimer+=dt;
+    if(this.laserTimer>=PULSE_DUR){
+      this.laserTimer=0;
+      this.laserPulses++;
+      if(this.laserPulses>=LASER_PULSES){
+        threat.laserHits++;
+        threat.flagged=false;
+        threat.behavior='fleeing';
+        this.totalLaserFired++;
+        this._disengage();
+        return true; // done
+      }
+    }
+  }
+  return false;
+};
+Drone.prototype._disengage=function(){
+  this.intercepting=false; this.interTgt=null;
+  this.laserFiring=false; this.laserTimer=0; this.laserPulses=0;
+  this.taskLoad=0.2;
+};
+Drone.prototype._clamp=function(){
+  this.pos[0]=cl(this.pos[0],2,W-2);
+  this.pos[1]=cl(this.pos[1],2,W-2);
+  this.pos[2]=cl(this.pos[2],2,26);
+};
+
+// ═══════════════════════════════════════════════════════
+// PPO NAVIGATOR (threat-biased waypoints)
+// ═══════════════════════════════════════════════════════
+function PPONav(start){
+  this.pos=start.slice(); this.vel=[0,0,0];
+  this.zoneIdx=0; this.waypts=[]; this.wptIdx=0;
+  this.hidden=new Array(12).fill(0); this.trail=[];
+  this.hotspots=[]; // recent threat positions for PPO re-bias
+  this._buildWaypoints(this.pos,PATROL[1]);
+}
+PPONav.prototype._buildWaypoints=function(frm,to){
+  this.waypts=[]; this.wptIdx=0;
+  var dx=to[0]-frm[0],dy=to[1]-frm[1];
+  var dist=Math.sqrt(dx*dx+dy*dy)+1e-6;
+  var px=-dy/dist, py=dx/dist;
+  // Threat bias: pull mid-waypoint toward recent hotspot
+  var bx=0,by=0;
+  if(this.hotspots.length>0){
+    var hx=0,hy=0;
+    for(var i=0;i<this.hotspots.length;i++){hx+=this.hotspots[i][0];hy+=this.hotspots[i][1];}
+    hx/=this.hotspots.length; hy/=this.hotspots.length;
+    bx=(hx-(frm[0]+dx*0.5))*0.2;
+    by=(hy-(frm[1]+dy*0.5))*0.2;
+  }
+  var sign=Math.random()>0.5?1:-1;
+  var mag=dist*(0.18+Math.random()*0.18);
+  var w1=[
+    cl(frm[0]+dx*0.33+px*mag*sign+bx, 5, W-5),
+    cl(frm[1]+dy*0.33+py*mag*sign+by, 5, W-5),
+    ALT
+  ];
+  var w2=[
+    cl(frm[0]+dx*0.67-px*mag*0.6*sign+bx*0.5, 5, W-5),
+    cl(frm[1]+dy*0.67-py*mag*0.6*sign+by*0.5, 5, W-5),
+    ALT
+  ];
+  this.waypts=[w1,w2,to.slice()];
+};
+PPONav.prototype.addHotspot=function(pos){
+  this.hotspots.push([pos[0],pos[1]]);
+  if(this.hotspots.length>10)this.hotspots.shift();
+};
+PPONav.prototype.step=function(dt){
+  if(this.wptIdx>=this.waypts.length)return true;
+  var wpt=this.waypts[this.wptIdx];
+  var toW=vs(wpt,this.pos),dist=vl(toW);
+  var isLast=(this.wptIdx===this.waypts.length-1);
+  var ar=isLast?8:11;
+  if(dist<ar){
+    this.wptIdx++;
+    if(this.wptIdx>=this.waypts.length)return true;
+    wpt=this.waypts[this.wptIdx]; toW=vs(wpt,this.pos); dist=vl(toW);
+  }
+  var sp=Math.min(MAXSPD*0.88,4.0+dist*0.07);
+  var desired=vm(vn(toW),sp);
+  var steer=[desired[0]-this.vel[0],desired[1]-this.vel[1],0];
+  var sm=Math.sqrt(steer[0]*steer[0]+steer[1]*steer[1]);
+  if(sm>5.5){steer[0]=steer[0]/sm*5.5;steer[1]=steer[1]/sm*5.5;}
+  this.vel[0]+=steer[0]*dt; this.vel[1]+=steer[1]*dt;
+  this.vel[2]+=(ALT-this.pos[2])*3*dt;
+  this.vel[0]*=0.982; this.vel[1]*=0.982; this.vel[2]*=0.94;
+  var sp2=vl(this.vel);
+  if(sp2>MAXSPD)this.vel=vm(this.vel,MAXSPD/sp2);
+  if(0<sp2&&sp2<2.0)this.vel=vm(this.vel,2.0/sp2);
+  this.pos[0]+=this.vel[0]*dt; this.pos[1]+=this.vel[1]*dt; this.pos[2]+=this.vel[2]*dt;
+  this.pos[0]=cl(this.pos[0],2,W-2); this.pos[1]=cl(this.pos[1],2,W-2); this.pos[2]=cl(this.pos[2],ALT-1,ALT+3);
+  this.trail.push(this.pos.slice());
+  if(this.trail.length>90)this.trail.shift();
+  return false;
+};
+PPONav.prototype.advanceZone=function(){
+  this.zoneIdx=(this.zoneIdx+1)%PATROL.length;
+  var nxt=PATROL[this.zoneIdx];
+  this._buildWaypoints(this.pos.slice(),nxt);
+};
+
+// ═══════════════════════════════════════════════════════
+// THREE.JS SCENE
+// ═══════════════════════════════════════════════════════
+var renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.1;
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+var scene=new THREE.Scene();
+scene.background=new THREE.Color(0x07111a);
+scene.fog=new THREE.Fog(0x07111a,120,500);
+
+var camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.3,2000);
+camera.position.set(40,-30,75);
+camera.lookAt(40,40,0);
+
+// Lighting
+var sun=new THREE.DirectionalLight(0xffe8dd,1.4);
+sun.position.set(60,80,120);
+sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-90;sun.shadow.camera.right=90;
+sun.shadow.camera.bottom=-90;sun.shadow.camera.top=90;
+sun.shadow.camera.far=300;
+scene.add(sun);
+scene.add(new THREE.AmbientLight(0x1a2d44,1.1));
+var fill=new THREE.DirectionalLight(0x4466aa,0.55);
+fill.position.set(-50,20,60);scene.add(fill);
+
+var SOL=[];// static obstacle list for physics
+
+// ── GROUND ────────────────────────────────────────────
+var gGeo=new THREE.PlaneGeometry(W,W,40,40);
+var gPos=gGeo.attributes.position;
+for(var gi=0;gi<gPos.count;gi++){
+  gPos.setZ(gi,Math.sin(gPos.getX(gi)*0.05)*Math.cos(gPos.getY(gi)*0.04)*0.4);
+}
+gGeo.computeVertexNormals();
+var gnd=new THREE.Mesh(gGeo,new THREE.MeshLambertMaterial({color:0x264a1e}));
+gnd.rotation.x=-Math.PI/2;gnd.position.set(W/2,W/2,0);
+gnd.receiveShadow=true;scene.add(gnd);
+
+// ── ROADS ─────────────────────────────────────────────
+var rM=new THREE.MeshLambertMaterial({color:0x191919});
+var mkM=new THREE.MeshLambertMaterial({color:0xddcc66});
+for(var rp=10;rp<W;rp+=10){
+  var r1=new THREE.Mesh(new THREE.BoxGeometry(W,4,0.15),rM);
+  r1.position.set(W/2,rp,0.05);scene.add(r1);
+  var r2=new THREE.Mesh(new THREE.BoxGeometry(4,W,0.15),rM);
+  r2.position.set(rp,W/2,0.05);scene.add(r2);
+  for(var rm=6;rm<W;rm+=9){
+    var mk1=new THREE.Mesh(new THREE.BoxGeometry(4,0.3,0.18),mkM);
+    mk1.position.set(rm,rp,0.08);scene.add(mk1);
+    var mk2=new THREE.Mesh(new THREE.BoxGeometry(0.3,4,0.18),mkM);
+    mk2.position.set(rp,rm,0.08);scene.add(mk2);
+  }
+}
+
+// ── BUILDINGS — every block gets 1–3 buildings ────────
+var bPalette=[
+  new THREE.MeshLambertMaterial({color:0x556699}),
+  new THREE.MeshLambertMaterial({color:0x886655}),
+  new THREE.MeshLambertMaterial({color:0x7755aa}),
+  new THREE.MeshLambertMaterial({color:0x558899}),
+  new THREE.MeshLambertMaterial({color:0x997766}),
+  new THREE.MeshLambertMaterial({color:0x445577}),
+  new THREE.MeshLambertMaterial({color:0xaa8855}),
+  new THREE.MeshLambertMaterial({color:0x6677aa}),
+];
+var winM1=new THREE.MeshLambertMaterial({color:0xffffaa,emissive:0x443300,emissiveIntensity:0.55});
+var winM2=new THREE.MeshLambertMaterial({color:0xaaddff,emissive:0x002233,emissiveIntensity:0.45});
+var antM =new THREE.MeshLambertMaterial({color:0x334455});
+var roofM=new THREE.MeshLambertMaterial({color:0x223333});
+
+function nearZone(x,y,r){
+  for(var zi=0;zi<PATROL.length;zi++){
+    var dx=x-PATROL[zi][0],dy=y-PATROL[zi][1];
+    if(Math.sqrt(dx*dx+dy*dy)<r)return true;
+  }
+  return false;
+}
+
+var bIdx2=0,rng42={state:42};
+function pr(){rng42.state=(rng42.state*1664525+1013904223)&0xffffffff;return(rng42.state>>>0)/0xffffffff;}
+function prn(lo,hi){return lo+pr()*(hi-lo);}
+
+// 8x8 grid of 10m cells
+for(var ci=0;ci<8;ci++){
+  for(var cj=0;cj<8;cj++){
+    var cx=ci*10+5, cy=cj*10+5;
+    if(nearZone(cx,cy,12))continue;
+
+    // District
+    var isTall=(ci>5||cj>5), isShop=(ci<3&&cj<3);
+    var nb=isTall?2:isShop?1:Math.floor(prn(1,3));
+
+    for(var bi=0;bi<nb;bi++){
+      var bw=prn(2.5,isTall?6:4.5), bd=prn(2.5,isTall?6:4.5);
+      var bh=prn(isTall?12:4, isTall?32:14);
+      var bx2=cx+prn(-1.5,1.5), by2=cy+prn(-1.5,1.5);
+      var mat=bPalette[bIdx2%bPalette.length]; bIdx2++;
+
+      var bm=new THREE.Mesh(new THREE.BoxGeometry(bw,bd,bh),mat);
+      bm.position.set(bx2,by2,bh/2);bm.castShadow=true;bm.receiveShadow=true;
+      scene.add(bm);
+
+      // Windows on all 4 sides
+      var flrs=Math.max(1,Math.floor(bh/3));
+      var useBlue=(bIdx2%2===0);
+      var wMat=useBlue?winM2:winM1;
+      for(var fl=0;fl<flrs;fl++){
+        var wz=2.0+fl*3.0;
+        var wf=new THREE.Mesh(new THREE.BoxGeometry(bw*0.75,0.1,0.4),wMat);
+        wf.position.set(bx2,by2-bd/2-0.05,wz);scene.add(wf);
+        var wb=wf.clone();wb.position.set(bx2,by2+bd/2+0.05,wz);scene.add(wb);
+        var wl=new THREE.Mesh(new THREE.BoxGeometry(0.1,bd*0.75,0.4),wMat);
+        wl.position.set(bx2-bw/2-0.05,by2,wz);scene.add(wl);
+        var wr=wl.clone();wr.position.set(bx2+bw/2+0.05,by2,wz);scene.add(wr);
+      }
+      // Rooftop detail
+      if(bh>10){
+        var acg=new THREE.BoxGeometry(bw*0.35,bd*0.35,0.7);
+        var ac2=new THREE.Mesh(acg,roofM);ac2.position.set(bx2+bw*0.1,by2-bd*0.1,bh+0.35);scene.add(ac2);
+      }
+      if(bh>18){
+        var ah=prn(2.5,5);
+        var am=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.2,ah,6),antM);
+        am.position.set(bx2,by2,bh+ah/2);scene.add(am);
+        if(bh>26){
+          var blink2=new THREE.Mesh(new THREE.SphereGeometry(0.3),new THREE.MeshBasicMaterial({color:0xff1100}));
+          blink2.position.set(bx2,by2,bh+ah+0.5);scene.add(blink2);
+        }
+      }
+      SOL.push([[bx2,by2,bh/2],Math.max(bw,bd)/2+2]);
+    }
+
+    // Lamp posts at corners
+    var lampM=new THREE.MeshLambertMaterial({color:0x888888});
+    var lampG=new THREE.MeshBasicMaterial({color:0xffffcc});
+    var corners3=[[-4,-4],[4,-4],[-4,4],[4,4]];
+    for(var lci=0;lci<corners3.length;lci++){
+      var lx=cx+corners3[lci][0], ly=cy+corners3[lci][1];
+      var lp=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,3.5,6),lampM);
+      lp.position.set(lx,ly,1.75);scene.add(lp);
+      var lg=new THREE.Mesh(new THREE.SphereGeometry(0.22,6,4),lampG);
+      lg.position.set(lx,ly,3.8);scene.add(lg);
+      var plamp=new THREE.PointLight(0xffffaa,0.5,7);
+      plamp.position.set(lx,ly,4.2);scene.add(plamp);
+    }
+  }
+}
+
+// Trees
+var trunkM=new THREE.MeshLambertMaterial({color:0x4a2a0a});
+var crown1M=new THREE.MeshLambertMaterial({color:0x2d7a22});
+var crown2M=new THREE.MeshLambertMaterial({color:0x1e5c14});
+for(var ti=0;ti<55;ti++){
+  var tx=prn(2,W-2),ty2=prn(2,W-2);
+  if(nearZone(tx,ty2,8))continue;
+  var th2=prn(3,6),tr2=prn(1.3,2.5);
+  var trk=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.45,th2,7),trunkM);
+  trk.position.set(tx,ty2,th2/2);trk.castShadow=true;scene.add(trk);
+  var crw=new THREE.Mesh(new THREE.SphereGeometry(tr2,8,6),crown1M);
+  crw.position.set(tx,ty2,th2+tr2*0.55);crw.castShadow=true;scene.add(crw);
+  var crw2=new THREE.Mesh(new THREE.SphereGeometry(tr2*0.72,7,5),crown2M);
+  crw2.position.set(tx,ty2,th2+tr2*1.1);crw2.castShadow=true;scene.add(crw2);
+  SOL.push([[tx,ty2,th2/2+tr2*0.5],tr2+1.0]);
+}
+
+// ── PATROL ZONE MARKERS ───────────────────────────────
+var zoneColors=[0x0099ff,0xffdd00,0xff6600,0x00ff88,0xcc44ff];
+var zoneMeshes=[],zoneRings=[],zoneLights2=[];
+for(var zi2=0;zi2<PATROL.length;zi2++){
+  var zc=zoneColors[zi2];
+  var zp=PATROL[zi2];
+  // Ground circle
+  var zcirc=new THREE.Mesh(new THREE.CircleGeometry(9,32),
+    new THREE.MeshBasicMaterial({color:zc,transparent:true,opacity:0.08,side:THREE.DoubleSide}));
+  zcirc.rotation.x=-Math.PI/2;zcirc.position.set(zp[0],zp[1],0.1);scene.add(zcirc);
+  // Ring
+  var zring=new THREE.Mesh(new THREE.TorusGeometry(9,0.22,8,40),
+    new THREE.MeshBasicMaterial({color:zc,transparent:true,opacity:0.5}));
+  zring.rotation.x=Math.PI/2;zring.position.set(zp[0],zp[1],0.3);scene.add(zring);zoneRings.push(zring);
+  // Sphere
+  var zsph=new THREE.Mesh(new THREE.SphereGeometry(1.6,12,10),
+    new THREE.MeshBasicMaterial({color:zc,transparent:true,opacity:0.8}));
+  zsph.position.set(zp[0],zp[1],2.5);scene.add(zsph);zoneMeshes.push(zsph);
+  // Beam
+  var zbeam=new THREE.Mesh(new THREE.CylinderGeometry(0.25,1.8,ALT+12,10),
+    new THREE.MeshBasicMaterial({color:zc,transparent:true,opacity:0.09,side:THREE.DoubleSide}));
+  zbeam.position.set(zp[0],zp[1],(ALT+12)/2);scene.add(zbeam);
+  // Light
+  var zpl=new THREE.PointLight(zc,2.2,18);zpl.position.set(zp[0],zp[1],4);scene.add(zpl);zoneLights2.push(zpl);
+  // Corner pillars
+  for(var pi2=0;pi2<4;pi2++){
+    var pa2=pi2*Math.PI/2+Math.PI/4,pr2=8.5;
+    var pil2=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.4,3.5),
+      new THREE.MeshLambertMaterial({color:zc,emissive:zc,emissiveIntensity:0.3}));
+    pil2.position.set(zp[0]+pr2*Math.cos(pa2),zp[1]+pr2*Math.sin(pa2),1.75);scene.add(pil2);
+  }
+}
+
+// ── DRONE MESHES ──────────────────────────────────────
+function makeDroneMesh(cn){
+  var g=new THREE.Group();
+  var body=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.7,0.22),
+    new THREE.MeshLambertMaterial({color:cn,emissive:cn,emissiveIntensity:0.2}));
+  body.castShadow=true;g.add(body);
+  // Camera dome
+  var dome=new THREE.Mesh(new THREE.SphereGeometry(0.2,7,5,0,Math.PI*2,0,Math.PI/2),
+    new THREE.MeshLambertMaterial({color:0x111122,emissive:0x000044,emissiveIntensity:0.4}));
+  dome.position.set(0,0,-0.12);g.add(dome);
+  // Arms + rotors
+  [[0.65,0],[-0.65,0],[0,0.65],[0,-0.65]].forEach(function(a){
+    var arm=new THREE.Mesh(new THREE.BoxGeometry(Math.abs(a[0])>0?1.3:0.09,Math.abs(a[1])>0?1.3:0.09,0.07),
+      new THREE.MeshLambertMaterial({color:0x222233}));
+    arm.position.set(a[0]*0.3,a[1]*0.3,0);g.add(arm);
+    var rotor=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.025,12),
+      new THREE.MeshBasicMaterial({color:0xbbbbdd,transparent:true,opacity:0.62}));
+    rotor.position.set(a[0],a[1],0.1);g.add(rotor);
+    var ring=new THREE.Mesh(new THREE.TorusGeometry(0.36,0.025,4,14),
+      new THREE.MeshBasicMaterial({color:cn,transparent:true,opacity:0.4}));
+    ring.position.set(a[0],a[1],0.1);g.add(ring);
+  });
+  var led=new THREE.PointLight(cn,1.8,7);g.add(led);
+  var spr=new THREE.Sprite(new THREE.SpriteMaterial({color:cn,transparent:true,opacity:0.25}));
+  spr.scale.set(4,4,1);g.add(spr);
+  return g;
+}
+
+// ── NAVIGATOR MESH ────────────────────────────────────
+var navGrp=new THREE.Group();
+var navCore=new THREE.Mesh(new THREE.OctahedronGeometry(1.0),
+  new THREE.MeshBasicMaterial({color:0xffdd00}));navGrp.add(navCore);
+var navRing=new THREE.Mesh(new THREE.TorusGeometry(2.2,0.12,7,28),
+  new THREE.MeshBasicMaterial({color:0xffdd00,transparent:true,opacity:0.4}));
+navRing.rotation.x=Math.PI/2;navGrp.add(navRing);
+navGrp.add(new THREE.PointLight(0xffdd00,3.5,14));
+var navSpr=new THREE.Sprite(new THREE.SpriteMaterial({color:0xffdd00,transparent:true,opacity:0.3}));
+navSpr.scale.set(6,6,1);navGrp.add(navSpr);
+scene.add(navGrp);
+
+// ── ENTITY MESHES (threat people/animals) ─────────────
+function makeThreatMesh(behavior){
+  var g=new THREE.Group();
+  var col=ENTITY_COLS[behavior]||0x888888;
+  // Body (capsule-like: box+sphere top)
+  var body2=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,1.0),
+    new THREE.MeshLambertMaterial({color:col,emissive:col,emissiveIntensity:0.15}));
+  body2.position.set(0,0,0.5);g.add(body2);
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.3,8,6),
+    new THREE.MeshLambertMaterial({color:col,emissive:col,emissiveIntensity:0.1}));
+  head.position.set(0,0,1.3);g.add(head);
+  // Alert ring (shown when flagged)
+  var alertRing=new THREE.Mesh(new THREE.TorusGeometry(0.8,0.06,6,24),
+    new THREE.MeshBasicMaterial({color:0xff2222,transparent:true,opacity:0}));
+  alertRing.rotation.x=Math.PI/2;alertRing.position.set(0,0,0.8);
+  alertRing.userData.isAlertRing=true;
+  g.add(alertRing);
+  var glow=new THREE.Sprite(new THREE.SpriteMaterial({color:col,transparent:true,opacity:0}));
+  glow.scale.set(3,3,1);glow.userData.isGlow=true;g.add(glow);
+  return g;
+}
+
+// ── LASER BEAM SYSTEM ─────────────────────────────────
+// Pool of laser line objects (reused)
+var laserPool=[];
+for(var li=0;li<N;li++){
+  var pts2=[new THREE.Vector3(),new THREE.Vector3()];
+  var lGeo=new THREE.BufferGeometry().setFromPoints(pts2);
+  var lLine=new THREE.Line(lGeo,new THREE.LineBasicMaterial({
+    color:0x00ff44,transparent:true,opacity:0,linewidth:3
+  }));
+  scene.add(lLine);laserPool.push(lLine);
+  // Pulse sphere at impact point
+  var pSph=new THREE.Mesh(new THREE.SphereGeometry(0.6,8,6),
+    new THREE.MeshBasicMaterial({color:0x00ff88,transparent:true,opacity:0}));
+  scene.add(pSph);laserPool[li].impactSphere=pSph;
+  laserPool[li].userData.droneIdx=-1;
+}
+
+// Laser impact particles
+var lpCount=200;
+var lpPos=new Float32Array(lpCount*3);
+for(var lpi=0;lpi<lpCount;lpi++){lpPos[lpi*3]=lpPos[lpi*3+1]=lpPos[lpi*3+2]=-999;}
+var lpGeo=new THREE.BufferGeometry();
+lpGeo.setAttribute('position',new THREE.BufferAttribute(lpPos,3));
+var lpMesh=new THREE.Points(lpGeo,new THREE.PointsMaterial({
+  color:0x00ff44,size:0.25,transparent:true,opacity:0.7,sizeAttenuation:true
+}));
+scene.add(lpMesh);
+var lpIdx=0;
+
+// ── TRAILS ────────────────────────────────────────────
+var TLEN=80;
+function mkTrail(col){
+  var pts=[];for(var i=0;i<TLEN;i++)pts.push(new THREE.Vector3(0,0,-200));
+  var geo=new THREE.BufferGeometry().setFromPoints(pts);
+  var line=new THREE.Line(geo,new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.65}));
+  scene.add(line);return{geo:geo};
+}
+var dTrails=DCOLS_NUM.map(function(c){return mkTrail(c);});
+var nTrail=mkTrail(0xffdd00);
+
+// Path arrow to current target
+var pathPts=[new THREE.Vector3(),new THREE.Vector3()];
+var pathGeo=new THREE.BufferGeometry().setFromPoints(pathPts);
+var pathLine=new THREE.Line(pathGeo,new THREE.LineBasicMaterial({
+  color:0xff3344,transparent:true,opacity:0.6
+}));scene.add(pathLine);
+
+// ── PARTICLES (drone propwash) ─────────────────────────
+var pCount=400, pBuf=new Float32Array(pCount*3);
+for(var pi3=0;pi3<pCount;pi3++){pBuf[pi3*3]=pBuf[pi3*3+1]=pBuf[pi3*3+2]=-999;}
+var pGeo2=new THREE.BufferGeometry();
+pGeo2.setAttribute('position',new THREE.BufferAttribute(pBuf,3));
+var pMesh2=new THREE.Points(pGeo2,new THREE.PointsMaterial({
+  color:0x88bbff,size:0.35,transparent:true,opacity:0.5,sizeAttenuation:true
+}));
+scene.add(pMesh2);
+var pIdx2=0;
+
+// ═══════════════════════════════════════════════════════
+// SIMULATION STATE
+// ═══════════════════════════════════════════════════════
+var swarm_sim={};
+function initSim(){
+  // Navigator
+  swarm_sim.nav=new PPONav(PATROL[0].slice());
+  swarm_sim.zoneIdx=0;
+  swarm_sim.stuckTimer=0;
+  swarm_sim.lastNavPos=PATROL[0].slice();
+  swarm_sim.t=0;
+  swarm_sim.totalIntercepts=0;
+  swarm_sim.totalBids=0;
+  swarm_sim.ppoIter=0;
+  swarm_sim.eventLog=[];
+
+  // Drones
+  swarm_sim.drones=[];
+  swarm_sim.droneMeshes=[];
+  var sp=PATROL[0];
+  for(var i=0;i<N;i++){
+    var ang=2*Math.PI*i/N, r=6;
+    var d=new Drone(i,[sp[0]+r*Math.cos(ang),sp[1]+r*Math.sin(ang),ALT+i%3*0.8]);
+    d.mesh=makeDroneMesh(DCOLS_NUM[i]);scene.add(d.mesh);
+    swarm_sim.drones.push(d);
+    swarm_sim.droneMeshes.push(d.mesh);
+  }
+
+  // Threat entities — 8 total, mixed types
+  swarm_sim.threats=[];
+  swarm_sim.threatMeshes=[];
+  var behaviors=['normal','normal','loitering','aggressive','fleeing','aggressive','normal','loitering'];
+  var rng2={s:7};
+  function pr2(){rng2.s=(rng2.s*6364136223846793005+1442695040888963407)&0x7fffffff;return rng2.s/0x7fffffff;}
+  for(var ti2=0;ti2<8;ti2++){
+    var tx2=8+pr2()*64, ty3=8+pr2()*64;
+    var t2=new ThreatEntity(ti2,[tx2,ty3,0],behaviors[ti2]);
+    var tm=makeThreatMesh(behaviors[ti2]);
+    tm.position.set(tx2,ty3,0);scene.add(tm);
+    t2.mesh=tm;
+    swarm_sim.threats.push(t2);
+    swarm_sim.threatMeshes.push(tm);
+  }
+}
+initSim();
+
+// ═══════════════════════════════════════════════════════
+// SIMULATION STEP
+// ═══════════════════════════════════════════════════════
+function simStep(dt){
+  var nav=swarm_sim.nav;
+  var drones=swarm_sim.drones;
+  var threats=swarm_sim.threats;
+
+  // 1. Update threat entities
+  var dpos=drones.map(function(d){return d.pos;});
+  for(var i=0;i<threats.length;i++){
+    threats[i].update(dt);
+    threats[i].scoreDQN(dpos);
+  }
+
+  // 2. Threat auction — assign interceptors
+  var activeThr=threats.filter(function(t){
+    return t.flagged&&!drones.some(function(d){return d.interTgt===t;});
+  });
+  for(var i=0;i<activeThr.length;i++){
+    var thr=activeThr[i];
+    var nearEnough=drones.some(function(d){return vl(vs(d.pos,thr.pos))<LASER_RANGE;});
+    if(!nearEnough)continue;
+    var winnerIdx=auctionAssign(drones,thr.pos);
+    swarm_sim.totalBids+=drones.filter(function(d){return !d.intercepting;}).length;
+    if(winnerIdx<0)continue;
+    var winner=drones[winnerIdx];
+    winner.intercepting=true;
+    winner.interTgt=thr;
+    winner.laserFiring=false;
+    winner.laserTimer=0;
+    winner.laserPulses=0;
+    nav.addHotspot(thr.pos);
+    _logEvent(swarm_sim.t,'w','UAV-'+winnerIdx+' → INTERCEPT ('+thr.behavior+' score:'+thr.score.toFixed(2)+')',true);
+  }
+
+  // 3. Navigator PPO step
+  var navDone=nav.step(dt);
+  if(navDone){nav.advanceZone();swarm_sim.zoneIdx=nav.zoneIdx;swarm_sim.stuckTimer=0;}
+  // Anti-stuck
+  swarm_sim.stuckTimer++;
+  if(swarm_sim.stuckTimer%500===0){
+    var moved=vl(vs(nav.pos,swarm_sim.lastNavPos));
+    if(moved<4){nav.pos[0]+=rn(-15,15);nav.pos[1]+=rn(-15,15);nav.vel=[0,0,0];}
+    swarm_sim.lastNavPos=nav.pos.slice();
+  }
+  if(swarm_sim.stuckTimer>1500){nav.advanceZone();swarm_sim.stuckTimer=0;}
+  swarm_sim.ppoIter++;
+
+  // 4. Drone updates
+  var tgt=PATROL[swarm_sim.zoneIdx];
+  for(var i=0;i<drones.length;i++){
+    var d=drones[i];
+    if(d.intercepting&&d.interTgt){
+      var done=d.updateIntercept(d.interTgt,dt);
+      if(done){
+        swarm_sim.totalIntercepts++;
+        _logEvent(swarm_sim.t,'l','LASER FIRED by UAV-'+d.id+' → '+d.interTgt.behavior+' deterred',true);
+      }
+    } else {
+      d.intercepting=false;
+      var nbrs=drones.filter(function(x){return x.id!==d.id;});
+      d.updatePatrol(nav.pos,nav.vel,nbrs,SOL,tgt,dt);
+    }
+  }
+
+  swarm_sim.t+=dt;
+}
+
+// ═══════════════════════════════════════════════════════
+// VISUAL SYNC
+// ═══════════════════════════════════════════════════════
+function syncVisuals(){
+  var nav=swarm_sim.nav;
+  var drones=swarm_sim.drones;
+  var threats=swarm_sim.threats;
+  var t=swarm_sim.t;
+  var pulse=Math.sin(t*5)*0.5+0.5;
+
+  // Drones
+  for(var i=0;i<drones.length;i++){
+    var d=drones[i];
+    d.mesh.position.set(d.pos[0],d.pos[1],d.pos[2]);
+    var spd=vl(d.vel);
+    if(spd>0.3){
+      var pitch=-Math.atan2(d.vel[2],Math.sqrt(d.vel[0]*d.vel[0]+d.vel[1]*d.vel[1]));
+      d.mesh.rotation.set(pitch*0.35,0,Math.atan2(d.vel[1],d.vel[0]));
+    }
+    // Spin rotors
+    d.mesh.children.forEach(function(c,ci){if(c.isMesh&&ci>=3)c.rotation.y+=0.4;});
+  }
+
+  // Navigator
+  navGrp.position.set(nav.pos[0],nav.pos[1],nav.pos[2]);
+  navCore.rotation.y+=0.04;navCore.rotation.z+=0.025;navRing.rotation.z+=0.02;
+
+  // Threats
+  for(var i=0;i<threats.length;i++){
+    var thr=threats[i];
+    thr.mesh.position.set(thr.pos[0],thr.pos[1],0);
+    // Update alert ring
+    thr.mesh.children.forEach(function(c){
+      if(c.userData.isAlertRing){
+        c.material.opacity=thr.flagged?0.5+pulse*0.4:0;
+        c.rotation.z+=0.05;
+      }
+      if(c.userData.isGlow){
+        c.material.opacity=thr.flagged?0.3+pulse*0.2:0;
+      }
+    });
+    // Rotate for movement direction
+    if(vl(thr.vel)>0.1){
+      thr.mesh.rotation.z=Math.atan2(thr.vel[1],thr.vel[0]);
+    }
+  }
+
+  // Laser beams
+  for(var i=0;i<drones.length;i++){
+    var d=drones[i];
+    var lline=laserPool[i];
+    var impSph=lline.impactSphere;
+    if(d.intercepting&&d.laserFiring&&d.interTgt){
+      var pulseOn=(d.laserPulses+Math.floor(d.laserTimer/(PULSE_DUR/4)))%2===0;
+      if(pulseOn){
+        var pa=lline.geometry.attributes.position;
+        pa.setXYZ(0,d.pos[0],d.pos[1],d.pos[2]);
+        pa.setXYZ(1,d.interTgt.pos[0],d.interTgt.pos[1],d.interTgt.pos[2]);
+        pa.needsUpdate=true;
+        lline.material.opacity=0.85+pulse*0.15;
+        lline.material.color.set(0x00ff44);
+        impSph.position.set(d.interTgt.pos[0],d.interTgt.pos[1],0.8);
+        impSph.material.opacity=0.6+pulse*0.3;
+        impSph.scale.set(1+pulse*0.4,1+pulse*0.4,1+pulse*0.4);
+        // Laser particles at impact
+        for(var pi4=0;pi4<6;pi4++){
+          lpPos[lpIdx*3]  =d.interTgt.pos[0]+rn(-1.5,1.5);
+          lpPos[lpIdx*3+1]=d.interTgt.pos[1]+rn(-1.5,1.5);
+          lpPos[lpIdx*3+2]=rn(0,1.5);
+          lpIdx=(lpIdx+1)%lpCount;
+        }
+        lpGeo.attributes.position.needsUpdate=true;
+        // Flash
+        document.getElementById('flash').style.opacity=0.4;
+      } else {
+        lline.material.opacity=0;
+        impSph.material.opacity=0;
+        document.getElementById('flash').style.opacity=0;
+      }
+    } else {
+      lline.material.opacity=0;
+      impSph.material.opacity=0;
+    }
+  }
+  // Fade particles
+  for(var pi4=0;pi4<lpCount;pi4++){
+    if(lpPos[pi4*3]>-900){
+      lpPos[pi4*3+2]+=0.02;
+      if(lpPos[pi4*3+2]>2){lpPos[pi4*3]=lpPos[pi4*3+1]=lpPos[pi4*3+2]=-999;}
+    }
+  }
+  lpGeo.attributes.position.needsUpdate=true;
+
+  // Propwash particles
+  for(var i=0;i<drones.length;i++){
+    pBuf[pIdx2*3]  =drones[i].pos[0]+rn(-0.8,0.8);
+    pBuf[pIdx2*3+1]=drones[i].pos[1]+rn(-0.8,0.8);
+    pBuf[pIdx2*3+2]=drones[i].pos[2]-rn(0.3,1.0);
+    pIdx2=(pIdx2+1)%pCount;
+  }
+  pGeo2.attributes.position.needsUpdate=true;
+
+  // Trails
+  for(var i=0;i<drones.length;i++){
+    var d=drones[i];
+    var tr=d.trail,geo=dTrails[i].geo,pa=geo.attributes.position;
+    var tn=Math.min(tr.length,TLEN);
+    for(var j=0;j<tn;j++){var tp=tr[tr.length-tn+j];pa.setXYZ(j,tp[0],tp[1],tp[2]);}
+    for(var j=tn;j<TLEN;j++)pa.setXYZ(j,d.pos[0],d.pos[1],d.pos[2]);
+    pa.needsUpdate=true;
+  }
+  var nt=nav.trail,npa=nTrail.geo.attributes.position,nn=Math.min(nt.length,TLEN);
+  for(var j=0;j<nn;j++){var tp2=nt[nt.length-nn+j];npa.setXYZ(j,tp2[0],tp2[1],tp2[2]);}
+  for(var j=nn;j<TLEN;j++)npa.setXYZ(j,nav.pos[0],nav.pos[1],nav.pos[2]);
+  npa.needsUpdate=true;
+
+  // Path arrow
+  var cc=clusterCenter();
+  var tz3=PATROL[swarm_sim.zoneIdx];
+  var ppa=pathLine.geometry.attributes.position;
+  ppa.setXYZ(0,cc[0],cc[1],cc[2]);ppa.setXYZ(1,tz3[0],tz3[1],tz3[2]);ppa.needsUpdate=true;
+
+  // Zone animations
+  for(var zi3=0;zi3<PATROL.length;zi3++){
+    var active3=(zi3===swarm_sim.zoneIdx);
+    var p2=Math.sin(swarm_sim.t*4)*0.5+0.5;
+    zoneMeshes[zi3].material.opacity=active3?0.85+p2*0.1:0.3;
+    zoneMeshes[zi3].material.color.set(active3?zoneColors[zi3]:0x334455);
+    zoneRings[zi3].material.opacity=active3?0.6+p2*0.15:0.1;
+    zoneRings[zi3].scale.set(active3?1+0.07*p2:1,active3?1+0.07*p2:1,1);
+    zoneLights2[zi3].intensity=active3?2.8+p2*1.2:0.4;
+  }
+}
+
+function clusterCenter(){
+  var s=[0,0,0];
+  for(var i=0;i<swarm_sim.drones.length;i++){
+    s[0]+=swarm_sim.drones[i].pos[0];s[1]+=swarm_sim.drones[i].pos[1];s[2]+=swarm_sim.drones[i].pos[2];
+  }
+  return[s[0]/N,s[1]/N,s[2]/N];
+}
+
+// ═══════════════════════════════════════════════════════
+// MINIMAP
+// ═══════════════════════════════════════════════════════
+var mmCtx2=document.getElementById('mm').getContext('2d');
+var mmSc=185/W;
+function drawMinimap(){
+  mmCtx2.fillStyle='#030810';mmCtx2.fillRect(0,0,185,185);
+  mmCtx2.strokeStyle='#111';mmCtx2.lineWidth=3;
+  for(var rp2=10;rp2<W;rp2+=10){
+    mmCtx2.beginPath();mmCtx2.moveTo(0,rp2*mmSc);mmCtx2.lineTo(185,rp2*mmSc);mmCtx2.stroke();
+    mmCtx2.beginPath();mmCtx2.moveTo(rp2*mmSc,0);mmCtx2.lineTo(rp2*mmSc,185);mmCtx2.stroke();
+  }
+  // Zones
+  for(var zi4=0;zi4<PATROL.length;zi4++){
+    var zp4=PATROL[zi4],active4=(zi4===swarm_sim.zoneIdx);
+    mmCtx2.fillStyle='#'+zoneColors[zi4].toString(16).padStart(6,'0');
+    mmCtx2.globalAlpha=active4?1:0.4;
+    mmCtx2.beginPath();mmCtx2.arc(zp4[0]*mmSc,zp4[1]*mmSc,active4?7:4,0,Math.PI*2);mmCtx2.fill();
+    mmCtx2.globalAlpha=1;
+  }
+  // Path to target
+  var cc2=clusterCenter(),tz4=PATROL[swarm_sim.zoneIdx];
+  mmCtx2.strokeStyle='#ff3344';mmCtx2.lineWidth=1.5;mmCtx2.globalAlpha=0.7;
+  mmCtx2.beginPath();mmCtx2.moveTo(cc2[0]*mmSc,cc2[1]*mmSc);mmCtx2.lineTo(tz4[0]*mmSc,tz4[1]*mmSc);mmCtx2.stroke();
+  mmCtx2.globalAlpha=1;
+  // Threats
+  for(var ti3=0;ti3<swarm_sim.threats.length;ti3++){
+    var thr2=swarm_sim.threats[ti3];
+    mmCtx2.fillStyle=ENTITY_COL_HEX[thr2.behavior]||'#888';
+    mmCtx2.globalAlpha=thr2.flagged?1:0.55;
+    mmCtx2.beginPath();mmCtx2.arc(thr2.pos[0]*mmSc,thr2.pos[1]*mmSc,thr2.flagged?5:3,0,Math.PI*2);mmCtx2.fill();
+    if(thr2.flagged){
+      mmCtx2.strokeStyle='#ff2222';mmCtx2.lineWidth=1.5;
+      mmCtx2.beginPath();mmCtx2.arc(thr2.pos[0]*mmSc,thr2.pos[1]*mmSc,8,0,Math.PI*2);mmCtx2.stroke();
+    }
+    mmCtx2.globalAlpha=1;
+  }
+  // Navigator
+  var np2=swarm_sim.nav.pos;
+  mmCtx2.fillStyle='#ffdd00';mmCtx2.globalAlpha=0.9;
+  mmCtx2.beginPath();mmCtx2.arc(np2[0]*mmSc,np2[1]*mmSc,5,0,Math.PI*2);mmCtx2.fill();mmCtx2.globalAlpha=1;
+  // Drones
+  for(var i=0;i<swarm_sim.drones.length;i++){
+    var dp=swarm_sim.drones[i];
+    mmCtx2.fillStyle=DCOLS_HEX[i];
+    mmCtx2.globalAlpha=dp.intercepting?1:0.8;
+    mmCtx2.beginPath();mmCtx2.arc(dp.pos[0]*mmSc,dp.pos[1]*mmSc,4,0,Math.PI*2);mmCtx2.fill();
+    if(dp.intercepting&&dp.interTgt){
+      mmCtx2.strokeStyle='#00ff44';mmCtx2.lineWidth=1;mmCtx2.globalAlpha=0.6;
+      mmCtx2.beginPath();mmCtx2.moveTo(dp.pos[0]*mmSc,dp.pos[1]*mmSc);
+      mmCtx2.lineTo(dp.interTgt.pos[0]*mmSc,dp.interTgt.pos[1]*mmSc);mmCtx2.stroke();
+    }
+    mmCtx2.globalAlpha=1;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// HUD UPDATES
+// ═══════════════════════════════════════════════════════
+function updateHUD(){
+  var drones=swarm_sim.drones, threats=swarm_sim.threats;
+  var spds=drones.map(function(d){return vl(d.vel);});
+  var nFlag=threats.filter(function(t){return t.flagged;}).length;
+  var nInt=drones.filter(function(d){return d.intercepting;}).length;
+
+  document.getElementById('m-t').textContent=swarm_sim.t.toFixed(1)+' s';
+  document.getElementById('tt').textContent=swarm_sim.t.toFixed(0)+'s';
+  document.getElementById('m-spd').textContent=avg(spds).toFixed(2)+' m/s';
+  document.getElementById('m-flag').textContent=nFlag;
+  document.getElementById('m-int').textContent=nInt;
+  document.getElementById('m-las').textContent=swarm_sim.totalIntercepts;
+  document.getElementById('ti').textContent=swarm_sim.totalIntercepts;
+  document.getElementById('th2').textContent=nFlag;
+  document.getElementById('m-zone').textContent=(swarm_sim.zoneIdx+1)+'/'+PATROL.length;
+  var nbrs2=[];
+  for(var i=0;i<drones.length;i++)for(var j=i+1;j<drones.length;j++)
+    nbrs2.push(vl(vs(drones[i].pos,drones[j].pos)));
+  var form=Math.max(0,100-Math.abs(avg(nbrs2)-8)*8);
+  document.getElementById('m-form').textContent=form.toFixed(0)+'%';
+  document.getElementById('m-eps').textContent=(drones[0].eps*100).toFixed(0)+'%';
+  document.getElementById('pb-eps').style.width=(drones[0].eps*100)+'%';
+  document.getElementById('m-ppo').textContent=swarm_sim.ppoIter;
+  document.getElementById('m-bids').textContent=swarm_sim.totalBids;
+
+  // Status badge
+  var st=document.getElementById('status-txt');
+  if(nInt>0){
+    st.textContent='⚡ LASER ACTIVE';st.className='st-threat';
+  } else if(nFlag>0){
+    st.textContent='⚠ THREAT DETECTED';st.className='st-threat';
+  } else {
+    st.textContent='● PATROLLING';st.className='st-patrol';
+  }
+
+  // Threat cards
+  var thrHtml='';
+  for(var i=0;i<threats.length;i++){
+    var t=threats[i];
+    var lasering=drones.some(function(d){return d.interTgt===t&&d.laserFiring;});
+    var cls=lasering?'tcard lasering':t.flagged?'tcard flagged':'tcard';
+    var col=ENTITY_COL_HEX[t.behavior]||'#888';
+    var stateStr=lasering?'LASER ACTIVE':t.flagged?'FLAGGED':t.behavior;
+    var scoreCol=t.score>0.8?'#ff2222':t.score>0.6?'#ff8800':'#44aa66';
+    thrHtml+='<div class="'+cls+'">'+
+      '<div class="tdot" style="background:'+col+'"></div>'+
+      '<div class="tinfo"><div class="tname">ENT-'+t.id+'</div>'+
+      '<div class="tstate">'+stateStr+' (x:'+t.pos[0].toFixed(0)+' y:'+t.pos[1].toFixed(0)+')</div></div>'+
+      '<div class="tscore" style="color:'+scoreCol+'">'+t.score.toFixed(2)+'</div>'+
+    '</div>';
+  }
+  document.getElementById('threat-cards').innerHTML=thrHtml;
+
+  // Drone cards
+  var dHtml='';
+  for(var i=0;i<drones.length;i++){
+    var d=drones[i];
+    var sp=vl(d.vel),pct=Math.min(100,sp/MAXSPD*100);
+    var stateStr2=d.laserFiring?'LASER!':d.intercepting?'INTERCEPT':'patrol';
+    var stateCol=d.laserFiring?'#00ff44':d.intercepting?'#ffaa00':'#667788';
+    dHtml+='<div class="dcard">'+
+      '<div class="ddot" style="background:'+DCOLS_HEX[i]+';box-shadow:0 0 4px '+DCOLS_HEX[i]+'"></div>'+
+      '<div class="dname">UAV-'+i+'</div>'+
+      '<div class="dbar-w"><div class="dbar-f" style="width:'+pct+'%;background:'+DCOLS_HEX[i]+'"></div></div>'+
+      '<div class="dstate" style="color:'+stateCol+'">'+stateStr2+'</div>'+
+    '</div>';
+  }
+  document.getElementById('drone-cards').innerHTML=dHtml;
+}
+
+// Event log
+var annTimer=0;
+function _logEvent(t,type,msg,show){
+  var el=document.getElementById('log-entries');
+  var cls=type==='l'?'ev-laser':type==='w'?'ev-threat':'ev-msg';
+  var entry=document.createElement('div');entry.className='ev-entry';
+  entry.innerHTML='<span class="ev-t">'+t.toFixed(1)+'s</span>'+
+    '<span class="'+cls+'">'+msg+'</span>';
+  el.insertBefore(entry,el.firstChild);
+  if(el.children.length>30)el.removeChild(el.lastChild);
+
+  if(show&&type==='l'){
+    var ann=document.getElementById('announce');
+    ann.style.borderColor='#00ff4466';
+    document.getElementById('ann-title').style.color='#00ff88';
+    document.getElementById('ann-title').textContent='LASER DETERRENT FIRED';
+    document.getElementById('ann-zone').style.color='#00ff88';
+    document.getElementById('ann-zone').textContent=msg.split('→')[1]||'';
+    document.getElementById('ann-desc').textContent='Non-lethal deterrent active — entity fleeing';
+    ann.style.display='block';annTimer=120;
+  } else if(show&&type==='w'){
+    var ann=document.getElementById('announce');
+    ann.style.borderColor='#ff440066';
+    document.getElementById('ann-title').style.color='#ff6600';
+    document.getElementById('ann-title').textContent='THREAT INTERCEPTED';
+    document.getElementById('ann-zone').style.color='#ffaa00';
+    document.getElementById('ann-zone').textContent=msg.split('→')[1]||'';
+    document.getElementById('ann-desc').textContent='DQN score threshold exceeded — auction winner assigned';
+    ann.style.display='block';annTimer=100;
+  }
+}
+swarm_sim.logEvent=_logEvent;
+
+// ═══════════════════════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════════════════════
+var camMode=0,camAng=0.5,camDist=70,camH=60,autoRot=false;
+var fDrone=-1,fLaser=false;
+var camTgt=new THREE.Vector3(W/2,W/2,0);
+
+function updateCamera(){
+  var cc=clusterCenter();
+  if(fLaser){
+    // Follow the active laser interception drone
+    var ld=swarm_sim.drones.find(function(d){return d.intercepting;});
+    if(ld)camTgt.lerp(new THREE.Vector3(ld.pos[0],ld.pos[1],0),0.08);
+    else camTgt.lerp(new THREE.Vector3(cc[0],cc[1],0),0.03);
+  } else if(fDrone>=0){
+    var dp=swarm_sim.drones[fDrone].pos;
+    camTgt.lerp(new THREE.Vector3(dp[0],dp[1],0),0.07);
+  } else {
+    camTgt.lerp(new THREE.Vector3(cc[0],cc[1],0),0.025);
+  }
+
+  if(camMode===0){
+    if(autoRot)camAng+=0.002;
+    var cx=camTgt.x+camDist*Math.sin(camAng);
+    var cy=camTgt.y-camDist*Math.cos(camAng);
+    camera.position.lerp(new THREE.Vector3(cx,cy,camH),0.035);
+    camera.lookAt(new THREE.Vector3(camTgt.x,camTgt.y,0));
+    camera.up.set(0,0,1);
+  } else if(camMode===1){
+    camera.position.lerp(new THREE.Vector3(W/2,W/2,180),0.04);
+    camera.lookAt(new THREE.Vector3(W/2,W/2,0));
+    camera.up.set(0,1,0);
+  } else if(camMode===2){
+    camAng+=0.0025;
+    camera.position.lerp(new THREE.Vector3(camTgt.x+40*Math.sin(camAng),camTgt.y-40*Math.cos(camAng),22),0.05);
+    camera.lookAt(new THREE.Vector3(camTgt.x,camTgt.y,10));
+    camera.up.set(0,0,1);
+  } else {
+    camera.position.lerp(new THREE.Vector3(W/2,-10,110),0.03);
+    camera.lookAt(new THREE.Vector3(W/2,W/2,0));
+    camera.up.set(0,0,1);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// MAIN RENDER LOOP
+// ═══════════════════════════════════════════════════════
+var paused=false,simSpd=1,fpsC=0,fpsT=Date.now(),frame=0;
+
+function animate(){
+  requestAnimationFrame(animate);
+  fpsC++;
+  var now=Date.now();
+  if(now-fpsT>600){
+    document.getElementById('tf').textContent=Math.round(fpsC*1000/(now-fpsT));
+    fpsC=0;fpsT=now;
+  }
+
+  if(!paused){
+    var steps=Math.max(1,Math.round(simSpd*2));
+    for(var s=0;s<steps;s++)simStep(DT);
+    syncVisuals();
+    if(frame%6===0){updateHUD();drawMinimap();}
+  }
+
+  // Announce dismiss
+  if(annTimer>0){annTimer--;if(annTimer===0)document.getElementById('announce').style.display='none';}
+
+  // Flash fade
+  var flashEl=document.getElementById('flash');
+  var fo=parseFloat(flashEl.style.opacity||0);
+  if(fo>0)flashEl.style.opacity=Math.max(0,fo-0.04);
+
+  updateCamera();
+  renderer.render(scene,camera);
+  frame++;
+}
+
+// ═══════════════════════════════════════════════════════
+// KEYBOARD CONTROLS
+// ═══════════════════════════════════════════════════════
+document.addEventListener('keydown',function(e){
+  var k=e.key;
+  if(k===' '||k==='p'){paused=!paused;e.preventDefault();}
+  else if(k==='c'||k==='C'){camMode=(camMode+1)%4;fDrone=-1;fLaser=false;}
+  else if(k==='r'||k==='R'){
+    // Reset simulation
+    swarm_sim.drones.forEach(function(d){scene.remove(d.mesh);});
+    swarm_sim.threats.forEach(function(t){scene.remove(t.mesh);});
+    initSim();
+    document.getElementById('announce').style.display='none';
+    document.getElementById('log-entries').innerHTML='';
+  }
+  else if(k==='+'||k==='='){simSpd=Math.min(5,simSpd+0.5);}
+  else if(k==='-'){simSpd=Math.max(0.25,simSpd-0.25);}
+  else if(k==='a'||k==='A'){autoRot=!autoRot;}
+  else if(k==='f'||k==='F'){fDrone=(fDrone+1)%N;fLaser=false;camMode=0;}
+  else if(k==='l'||k==='L'){fLaser=!fLaser;fDrone=-1;camMode=0;}
+  else if(k==='q'||k==='Q'){camDist=Math.max(25,camDist-8);camH=Math.max(20,camH-5);}
+  else if(k==='e'||k==='E'){camDist=Math.min(120,camDist+8);camH=Math.min(120,camH+5);}
+  else if(k>='1'&&k<='5'){swarm_sim.zoneIdx=parseInt(k)-1;swarm_sim.nav.zoneIdx=swarm_sim.zoneIdx;swarm_sim.nav._buildWaypoints(swarm_sim.nav.pos.slice(),PATROL[swarm_sim.zoneIdx]);}
+});
+
+window.addEventListener('resize',function(){
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+// Start
+updateHUD();drawMinimap();animate();
+console.log('%cEN-MASCA Laser Deterrent — Three.js Ready','color:#00ff88;font-size:14px;font-weight:bold');
+console.log('SPACE=Pause | C=Camera | R=Reset | F=Follow drone | L=Follow laser | +/-=Speed');
+})();
+</script>
+</body>
+</html>
